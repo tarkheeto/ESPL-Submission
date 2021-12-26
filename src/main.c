@@ -90,6 +90,16 @@ static StackType_t uxTimerTaskStack[ configTIMER_TASK_STACK_DEPTH ];
     configTIMER_TASK_STACK_DEPTH is specified in words, not bytes. */
     *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
 }
+typedef struct spaceShipStruct_t
+{
+    bool attackState; // IF false then passive -> we can shoot
+    int spaceShipMissileX;
+    int spaceShipMissileY;
+    int mothershipXPosition;
+    int mothershipYPosition;  
+    SemaphoreHandle_t lock;
+}spaceShipStruct_t;
+spaceShipStruct_t spaceShipStruct;
 typedef struct Exercise3VariableIncrementationStruct {
     int LeftNumber;
     int RightNumber;
@@ -407,11 +417,7 @@ bool ButtonStateChangeCheck(int buttonSDLIndex)
 
     return ret;
 }
-bool attackState = false; // IF false then passive -> we can shoot
-int spaceShipMissileX;
-int spaceShipMissileY;
-int mothershipXPosition;
-int mothershipYPosition;
+
 void Drawing_Task(void *pvParameters)
 {
     //tumDrawBindThread();
@@ -430,11 +436,14 @@ void Drawing_Task(void *pvParameters)
                 tumDrawText("LIGHT WEIGHT",400,50,TUMBlue);
                 //tumDrawText("YEAH BUDDY!",225,400,TUMBlue);  
                 
-                tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);		
-
-                tumDrawLoadedImage(ball_spritesheet_image,mothershipXPosition,
-                                     mothershipYPosition);
-                if (attackState){tumDrawArrow(spaceShipMissileX,spaceShipMissileY,spaceShipMissileX,spaceShipMissileY+1,3,2,Green);}
+                tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);	
+                if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){	
+                tumDrawLoadedImage(ball_spritesheet_image,spaceShipStruct.mothershipXPosition,
+                                     spaceShipStruct.mothershipYPosition);
+                if (spaceShipStruct.attackState){tumDrawArrow(spaceShipStruct.spaceShipMissileX,spaceShipStruct.spaceShipMissileY,
+                spaceShipStruct.spaceShipMissileX,spaceShipStruct.spaceShipMissileY+1,3,2,Green);}
+                xSemaphoreGive(spaceShipStruct.lock);
+                }
                 vDrawFPS();
                 xSemaphoreGive(ScreenLock);
             }
@@ -448,16 +457,23 @@ void Drawing_Task(void *pvParameters)
 
 
 void vSpaceshipShoot(){
-    if (attackState == false){
-        attackState = true;
-        spaceShipMissileX=mothershipXPosition;
-        spaceShipMissileY=mothershipYPosition+3;
+  
+        
+    if (spaceShipStruct.attackState == false){
+        spaceShipStruct.attackState = true;
+        spaceShipStruct.spaceShipMissileX=spaceShipStruct.mothershipXPosition;
+        spaceShipStruct.spaceShipMissileY=spaceShipStruct.mothershipYPosition+3;
     }
+  
 }
 void PositionIncrementation_Task(void *pvParameters){
+if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
+spaceShipStruct.attackState=false;    
+spaceShipStruct.mothershipXPosition=310;
+spaceShipStruct.mothershipYPosition=400;   
+xSemaphoreGive(spaceShipStruct.lock);
+    }
 
-mothershipXPosition=310;
-mothershipYPosition=400;   
     while(1){
                 tumEventFetchEvents(FETCH_EVENT_BLOCK |
                                     FETCH_EVENT_NO_GL_CHECK);
@@ -468,13 +484,14 @@ mothershipYPosition=400;
                         }
                     xSemaphoreGive(buttons.lock);
                 }
+                if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
                 if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
 
                     if (buttons.buttons[KEYCODE(RIGHT)]) { 
-                         mothershipXPosition+=3;
+                         spaceShipStruct.mothershipXPosition+=3;
                     }
                     if (buttons.buttons[KEYCODE(LEFT)]) { 
-                         mothershipXPosition-=3;
+                         spaceShipStruct.mothershipXPosition-=3;
                     }
                     xSemaphoreGive(buttons.lock);
                 }
@@ -487,8 +504,11 @@ mothershipYPosition=400;
 
                 if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
                         vSpaceshipShoot();}       
-                if (attackState){spaceShipMissileY--;
-                if (spaceShipMissileY<=0){attackState=false;}
+                if (spaceShipStruct.attackState){
+                    spaceShipStruct.spaceShipMissileY--;
+                    if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
+                }
+                xSemaphoreGive(spaceShipStruct.lock);
                 }  
                 vTaskDelay((TickType_t)20);
             }
@@ -636,6 +656,7 @@ int main(int argc, char *argv[])
         PRINT_ERROR("Failed to create buttons lock");
         goto err_buttons_lock;
     }
+    spaceShipStruct.lock = xSemaphoreCreateMutex();
     StateQueue = xQueueCreate(STATE_QUEUE_LENGTH, sizeof(unsigned char));
     if (!StateQueue) {
         PRINT_ERROR("Could not open state queue");
