@@ -430,18 +430,18 @@ void Drawing_Task(void *pvParameters)
                 pdTRUE) {
 
                 xSemaphoreTake(ScreenLock, portMAX_DELAY);
-                tumDrawSetGlobalXOffset(0);
-                tumDrawSetGlobalYOffset(0);
                 tumDrawClear(Black); // Clear screen
-                tumDrawText("LIGHT WEIGHT",400,50,TUMBlue);
-                //tumDrawText("YEAH BUDDY!",225,400,TUMBlue);  
                 
                 tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);	
                 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){	
                 tumDrawLoadedImage(ball_spritesheet_image,spaceShipStruct.mothershipXPosition,
                                      spaceShipStruct.mothershipYPosition);
-                if (spaceShipStruct.attackState){tumDrawArrow(spaceShipStruct.spaceShipMissileX,spaceShipStruct.spaceShipMissileY,
-                spaceShipStruct.spaceShipMissileX,spaceShipStruct.spaceShipMissileY+1,3,2,Green);}
+                if (spaceShipStruct.attackState){
+                    tumDrawFilledBox(spaceShipStruct.spaceShipMissileX+10,spaceShipStruct.spaceShipMissileY,3,5,Red);
+                    
+                    /*tumDrawArrow(spaceShipStruct.spaceShipMissileX,spaceShipStruct.spaceShipMissileY,
+                spaceShipStruct.spaceShipMissileX,spaceShipStruct.spaceShipMissileY+1,3,2,Green);*/
+                }
                 xSemaphoreGive(spaceShipStruct.lock);
                 }
                 vDrawFPS();
@@ -487,12 +487,14 @@ xSemaphoreGive(spaceShipStruct.lock);
                 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
                 if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
 
-                    if (buttons.buttons[KEYCODE(RIGHT)]) { 
-                         spaceShipStruct.mothershipXPosition+=3;
-                    }
+                    if (buttons.buttons[KEYCODE(RIGHT)]) {
+                        if(spaceShipStruct.mothershipXPosition<=560){ 
+                         spaceShipStruct.mothershipXPosition+=6;
+                    }}
                     if (buttons.buttons[KEYCODE(LEFT)]) { 
-                         spaceShipStruct.mothershipXPosition-=3;
-                    }
+                        if(spaceShipStruct.mothershipXPosition>=40){ 
+                         spaceShipStruct.mothershipXPosition-=6;
+                    }}
                     xSemaphoreGive(buttons.lock);
                 }
             
@@ -505,7 +507,7 @@ xSemaphoreGive(spaceShipStruct.lock);
                 if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
                         vSpaceshipShoot();}       
                 if (spaceShipStruct.attackState){
-                    spaceShipStruct.spaceShipMissileY--;
+                    spaceShipStruct.spaceShipMissileY-=10;
                     if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
                 }
                 xSemaphoreGive(spaceShipStruct.lock);
@@ -739,3 +741,4 @@ __attribute__((unused)) void vApplicationIdleHook(void)
     nanosleep(&xTimeToSleep, &xTimeSlept);
 #endif
 }
+// GITHUB TOKEN: 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
