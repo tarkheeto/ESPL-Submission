@@ -442,12 +442,11 @@ void Drawing_Task(void *pvParameters)
 
                 xSemaphoreTake(ScreenLock, portMAX_DELAY);
                 tumDrawClear(Black); // Clear screen
-                tumDrawFilledBox(debugVar,200,10,10,Green);
                 tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);
                 for (int counter =0; counter <20;counter++){
                     if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
                         if(shelterBlocks[counter].alive==true){
-                            tumDrawFilledBox(shelterBlocks[counter].posX,shelterBlocks[counter].posY,10,10,Purple);
+                            tumDrawFilledBox(shelterBlocks[counter].posX,shelterBlocks[counter].posY,25,10,Teal);
                         }
 
                         xSemaphoreGive(shelterBlocks[counter].lock);
@@ -543,9 +542,26 @@ xSemaphoreGive(spaceShipStruct.lock);
 void shelterCreatingTask(){
     for (int counter =0; counter <20;counter++){
         if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
+        if (counter<5){     
         shelterBlocks[counter].alive=true;    
-        shelterBlocks[counter].posX=100 + counter*11;
+        shelterBlocks[counter].posX=50 + counter*25;
+        shelterBlocks[counter].posY=350;
+        }
+        if (counter>=5 && counter< 10){
+        shelterBlocks[counter].alive=true;    
+        shelterBlocks[counter].posX= counter*25;
         shelterBlocks[counter].posY=300;
+        }
+        if (counter>=10 && counter< 15){
+        shelterBlocks[counter].alive=true;    
+        shelterBlocks[counter].posX= counter*25;
+        shelterBlocks[counter].posY=325;
+        }
+        if (counter>=15){
+        shelterBlocks[counter].alive=true;    
+        shelterBlocks[counter].posX=20+counter*25;
+        shelterBlocks[counter].posY=350;
+        }
         xSemaphoreGive(shelterBlocks[counter].lock);
         }
     }
@@ -571,7 +587,7 @@ void collisionDetectionTask(){
         if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){ //to get the access to the missile's position
             for (int counter =0; counter <20;counter++){
                 if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
-                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<10 && 
+                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<13 && 
                     shelterBlocks[counter].alive) {
                         shelterBlocks[counter].alive=false;
                         spaceShipStruct.attackState=false;
