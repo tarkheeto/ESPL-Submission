@@ -36,7 +36,9 @@
 #define STARTING_STATE STATE_ONE
 
 #define STATE_DEBOUNCE_DELAY 300
-
+SemaphoreHandle_t shelterCreate = NULL;
+TaskHandle_t collisionDetectionTaskHandle=NULL;
+int debugVar = 0;
 static TaskHandle_t LeftNumber = NULL;
 /* configSUPPORT_STATIC_ALLOCATION is set to 1, so the application must provide an
 implementation of vApplicationGetIdleTaskMemory() to provide the memory that is
@@ -90,6 +92,14 @@ static StackType_t uxTimerTaskStack[ configTIMER_TASK_STACK_DEPTH ];
     configTIMER_TASK_STACK_DEPTH is specified in words, not bytes. */
     *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
 }
+typedef struct shelterblock_t{
+        int posX;
+        int posY;
+        bool active;
+        bool alive;
+        SemaphoreHandle_t lock;
+}shelterblock_t;
+shelterblock_t shelterBlocks[1];
 typedef struct spaceShipStruct_t
 {
     bool attackState; // IF false then passive -> we can shoot
@@ -112,6 +122,7 @@ static SemaphoreHandle_t SpaceShipMissileSem=NULL;
 const unsigned char next_state_signal = NEXT_TASK;
 const unsigned char prev_state_signal = PREV_TASK;
 static TaskHandle_t StateMachine = NULL;
+static TaskHandle_t shelterCreatingTaskHandle = NULL;
 static QueueHandle_t StateQueue = NULL;
 //////////////////////////
 #define mainGENERIC_PRIORITY (tskIDLE_PRIORITY)
@@ -431,8 +442,15 @@ void Drawing_Task(void *pvParameters)
 
                 xSemaphoreTake(ScreenLock, portMAX_DELAY);
                 tumDrawClear(Black); // Clear screen
-                
+                tumDrawFilledBox(debugVar,200,10,10,Green);
                 tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);	
+                    if (xSemaphoreTake(shelterBlocks[0].lock,0)==pdTRUE){
+                        if(shelterBlocks[0].alive==true){
+                            tumDrawFilledBox(shelterBlocks[0].posX,shelterBlocks[0].posY,10,10,Purple);
+                        }
+
+                        xSemaphoreGive(shelterBlocks[0].lock);
+                    }
                 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){	
                 tumDrawLoadedImage(ball_spritesheet_image,spaceShipStruct.mothershipXPosition,
                                      spaceShipStruct.mothershipYPosition);
@@ -505,7 +523,14 @@ xSemaphoreGive(spaceShipStruct.lock);
                         mothershipXPosition-=10;}*/       
 
                 if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
-                        vSpaceshipShoot();}       
+                        vSpaceshipShoot();}  
+                if (ButtonStateChangeCheck(KEYCODE(O))==true){
+
+                    if (xSemaphoreTake(shelterBlocks[0].lock,0)==pdTRUE){
+
+                        xSemaphoreGive(shelterBlocks[0].lock);
+                    }
+                        xSemaphoreGive(shelterCreate);}      
                 if (spaceShipStruct.attackState){
                     spaceShipStruct.spaceShipMissileY-=10;
                     if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
@@ -516,6 +541,43 @@ xSemaphoreGive(spaceShipStruct.lock);
             }
             vCheckStateInput();
 
+}
+void shelterCreatingTask(){
+    if (xSemaphoreTake(shelterBlocks[0].lock,0)==pdTRUE){
+        shelterBlocks[0].alive=true;    
+        shelterBlocks[0].posX=100;
+        shelterBlocks[0].posY=100;
+        xSemaphoreGive(shelterBlocks[0].lock);
+    }
+
+    while(1){
+        if (xSemaphoreTake(shelterCreate,portMAX_DELAY)==pdTRUE){
+            if (xSemaphoreTake(shelterBlocks[0].lock,0)==pdTRUE){
+            shelterBlocks[0].alive=true;    
+            xSemaphoreGive(shelterBlocks[0].lock);
+            }   
+        }
+                
+                
+            
+        vTaskDelay((TickType_t)20);
+    }
+}
+void collisionDetectionTask(){
+    while(1){
+        if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){ //to get the access to the missile's position
+            if(xSemaphoreTake(shelterBlocks[0].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
+                if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[0].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[0].posX)<10) {
+                    shelterBlocks[0].alive=false;
+                }
+            xSemaphoreGive(shelterBlocks[0].lock);    
+            }
+        xSemaphoreGive(spaceShipStruct.lock);
+        } 
+        
+        vTaskDelay((TickType_t)20);
+
+    }
 }
 #define LBI 0x01
 int debugvarr222 =0;
@@ -569,7 +631,7 @@ const TickType_t xFrequency = pdMS_TO_TICKS(250);
         //printf("toggled right circle!\n");
     }
 }
-int debugVar = 0;
+
 int debugVarrunningcheck=0;
 void vExercise3(void *pvParameters){
     uint32_t NotificationBuffer;
@@ -654,10 +716,12 @@ int main(int argc, char *argv[])
     }
 
     buttons.lock = xSemaphoreCreateMutex(); // Locking mechanism
+    shelterBlocks[0].lock=xSemaphoreCreateMutex();
     if (!buttons.lock) {
         PRINT_ERROR("Failed to create buttons lock");
         goto err_buttons_lock;
     }
+    shelterCreate =xSemaphoreCreateBinary();
     spaceShipStruct.lock = xSemaphoreCreateMutex();
     StateQueue = xQueueCreate(STATE_QUEUE_LENGTH, sizeof(unsigned char));
     if (!StateQueue) {
@@ -674,6 +738,8 @@ int main(int argc, char *argv[])
                     mainGENERIC_PRIORITY, &DrawingTask_Handle) != pdPASS) {
         goto err_demotask;
     }
+    xTaskCreate(collisionDetectionTask,"collision Detection Task", mainGENERIC_STACK_SIZE * 2, NULL,
+                    mainGENERIC_PRIORITY, &collisionDetectionTaskHandle);
     if (xTaskCreate(PositionIncrementation_Task, "Position Incrementation Task", mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &PositionIncrementationTask_Handle) != pdPASS) {
     goto err_demotask;
@@ -697,7 +763,8 @@ int main(int argc, char *argv[])
                     mainGENERIC_STACK_SIZE * 2, NULL, configMAX_PRIORITIES-1,
                     BufferSwap) != pdPASS) {
     }
-    
+    xTaskCreate(shelterCreatingTask,"task that creates a shelter",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &shelterCreatingTaskHandle);
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
