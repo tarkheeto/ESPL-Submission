@@ -99,7 +99,7 @@ typedef struct shelterblock_t{
         bool alive;
         SemaphoreHandle_t lock;
 }shelterblock_t;
-shelterblock_t shelterBlocks[1];
+shelterblock_t shelterBlocks[20];
 typedef struct spaceShipStruct_t
 {
     bool attackState; // IF false then passive -> we can shoot
@@ -443,14 +443,16 @@ void Drawing_Task(void *pvParameters)
                 xSemaphoreTake(ScreenLock, portMAX_DELAY);
                 tumDrawClear(Black); // Clear screen
                 tumDrawFilledBox(debugVar,200,10,10,Green);
-                tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);	
-                    if (xSemaphoreTake(shelterBlocks[0].lock,0)==pdTRUE){
-                        if(shelterBlocks[0].alive==true){
-                            tumDrawFilledBox(shelterBlocks[0].posX,shelterBlocks[0].posY,10,10,Purple);
+                tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);
+                for (int counter =0; counter <20;counter++){
+                    if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
+                        if(shelterBlocks[counter].alive==true){
+                            tumDrawFilledBox(shelterBlocks[counter].posX,shelterBlocks[counter].posY,10,10,Purple);
                         }
 
-                        xSemaphoreGive(shelterBlocks[0].lock);
+                        xSemaphoreGive(shelterBlocks[counter].lock);
                     }
+                }    
                 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){	
                 tumDrawLoadedImage(ball_spritesheet_image,spaceShipStruct.mothershipXPosition,
                                      spaceShipStruct.mothershipYPosition);
@@ -525,11 +527,7 @@ xSemaphoreGive(spaceShipStruct.lock);
                 if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
                         vSpaceshipShoot();}  
                 if (ButtonStateChangeCheck(KEYCODE(O))==true){
-
-                    if (xSemaphoreTake(shelterBlocks[0].lock,0)==pdTRUE){
-
-                        xSemaphoreGive(shelterBlocks[0].lock);
-                    }
+                    
                         xSemaphoreGive(shelterCreate);}      
                 if (spaceShipStruct.attackState){
                     spaceShipStruct.spaceShipMissileY-=10;
@@ -543,19 +541,24 @@ xSemaphoreGive(spaceShipStruct.lock);
 
 }
 void shelterCreatingTask(){
-    if (xSemaphoreTake(shelterBlocks[0].lock,0)==pdTRUE){
-        shelterBlocks[0].alive=true;    
-        shelterBlocks[0].posX=100;
-        shelterBlocks[0].posY=100;
-        xSemaphoreGive(shelterBlocks[0].lock);
+    for (int counter =0; counter <20;counter++){
+        if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
+        shelterBlocks[counter].alive=true;    
+        shelterBlocks[counter].posX=100 + counter*11;
+        shelterBlocks[counter].posY=300;
+        xSemaphoreGive(shelterBlocks[counter].lock);
+        }
     }
+
 
     while(1){
         if (xSemaphoreTake(shelterCreate,portMAX_DELAY)==pdTRUE){
-            if (xSemaphoreTake(shelterBlocks[0].lock,0)==pdTRUE){
-            shelterBlocks[0].alive=true;    
-            xSemaphoreGive(shelterBlocks[0].lock);
-            }   
+            for (int counter =0; counter <20;counter++){
+                if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
+                shelterBlocks[counter].alive=true;    
+                xSemaphoreGive(shelterBlocks[counter].lock);
+                }   
+            }
         }
                 
                 
@@ -566,11 +569,15 @@ void shelterCreatingTask(){
 void collisionDetectionTask(){
     while(1){
         if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){ //to get the access to the missile's position
-            if(xSemaphoreTake(shelterBlocks[0].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
-                if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[0].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[0].posX)<10) {
-                    shelterBlocks[0].alive=false;
+            for (int counter =0; counter <20;counter++){
+                if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
+                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<10 && 
+                    shelterBlocks[counter].alive) {
+                        shelterBlocks[counter].alive=false;
+                        spaceShipStruct.attackState=false;
+                    }
+                xSemaphoreGive(shelterBlocks[counter].lock);    
                 }
-            xSemaphoreGive(shelterBlocks[0].lock);    
             }
         xSemaphoreGive(spaceShipStruct.lock);
         } 
@@ -716,7 +723,10 @@ int main(int argc, char *argv[])
     }
 
     buttons.lock = xSemaphoreCreateMutex(); // Locking mechanism
-    shelterBlocks[0].lock=xSemaphoreCreateMutex();
+    for (int counter =0; counter <20;counter++){
+    shelterBlocks[counter].lock=xSemaphoreCreateMutex();
+    }
+    
     if (!buttons.lock) {
         PRINT_ERROR("Failed to create buttons lock");
         goto err_buttons_lock;
