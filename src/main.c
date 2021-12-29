@@ -100,7 +100,7 @@ typedef struct alien1_t{
     bool active;
     SemaphoreHandle_t lock;
 }alien1_t;
-alien1_t  aliens_1[1];
+alien1_t  aliens_1[5][8];
 typedef struct shelterblock_t{
         int posX;
         int posY;
@@ -458,12 +458,12 @@ void Drawing_Task(void *pvParameters)
                 }
 
                 //Drawing the first type of aliens 
-                if(xSemaphoreTake(aliens_1[0].lock,portMAX_DELAY)==pdTRUE){
-                        if(aliens_1[0].alive) {
+                if(xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){
+                        if(aliens_1[0][0].alive) {
                         tumDrawSetLoadedImageScale(alien1_image,0.05);    
-                        tumDrawLoadedImage(alien1_image,aliens_1[0].posX,aliens_1[0].posY);
+                        tumDrawLoadedImage(alien1_image,aliens_1[0][0].posX,aliens_1[0][0].posY);
                         }
-                    xSemaphoreGive(aliens_1[0].lock);    
+                    xSemaphoreGive(aliens_1[0][0].lock);    
                 }   
                 vDrawFPS();
                 xSemaphoreGive(ScreenLock);
@@ -513,7 +513,7 @@ xSemaphoreGive(spaceShipStruct.lock);
                          spaceShipStruct.mothershipXPosition+=6;
                     }}
                     if (buttons.buttons[KEYCODE(LEFT)]) { 
-                        if(spaceShipStruct.mothershipXPosition>=40){ 
+                        if(spaceShipStruct.mothershipXPosition>=10){ 
                          spaceShipStruct.mothershipXPosition-=6;
                     }}
                     xSemaphoreGive(buttons.lock);
@@ -597,13 +597,13 @@ void collisionDetectionTask(){
             }
 
             //Collision detection between the mothership's missile and aliens of type 1
-            if(xSemaphoreTake(aliens_1[0].lock,portMAX_DELAY)==pdTRUE){
-                if (abs(spaceShipStruct.spaceShipMissileY- aliens_1[0].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -aliens_1[0].posX)<13 && 
-                    aliens_1[0].alive) {
-                        aliens_1[0].alive=false;
+            if(xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){
+                if (abs(spaceShipStruct.spaceShipMissileY- aliens_1[0][0].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -aliens_1[0][0].posX)<13 && 
+                    aliens_1[0][0].alive) {
+                        aliens_1[0][0].alive=false;
                         spaceShipStruct.attackState=false;
                     }
-                xSemaphoreGive(aliens_1[0].lock);
+                xSemaphoreGive(aliens_1[0][0].lock);
             }
 
         xSemaphoreGive(spaceShipStruct.lock);
@@ -616,12 +616,17 @@ void collisionDetectionTask(){
 
 void alienCreationTask(){
     //alien variable initialisation
-    if (xSemaphoreTake(aliens_1[0].lock,portMAX_DELAY)==pdTRUE){ 
-    aliens_1[0].active=false;
-    aliens_1[0].alive=true;
-    aliens_1[0].posX=200;
-    aliens_1[0].posY=200;
-    xSemaphoreGive(aliens_1[0].lock);}
+    for(int c1 =0 ; c1 < 5 ; c1++){
+        for(int c2 = 0; c2 <8 ;c2++){
+               
+        }
+    }
+    if (xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){ 
+    aliens_1[0][0].active=false;
+    aliens_1[0][0].alive=true;
+    aliens_1[0][0].posX=10;
+    aliens_1[0][0].posY=80;
+    xSemaphoreGive(aliens_1[0][0].lock);}
     while(1){
         vTaskDelay((TickType_t)20);
     }
@@ -765,7 +770,12 @@ int main(int argc, char *argv[])
     for (int counter =0; counter <20;counter++){
     shelterBlocks[counter].lock=xSemaphoreCreateMutex();
     }
-    aliens_1[0].lock = xSemaphoreCreateMutex();
+    for(int c1 =0 ; c1 < 5 ; c1++){
+        for(int c2 = 0; c2 <8 ;c2++){
+                aliens_1[c1][c2].lock = xSemaphoreCreateMutex();
+        }
+    }
+
     if (!buttons.lock) {
         PRINT_ERROR("Failed to create buttons lock");
         goto err_buttons_lock;
