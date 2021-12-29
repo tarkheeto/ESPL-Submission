@@ -37,6 +37,7 @@
 
 #define STATE_DEBOUNCE_DELAY 300
 SemaphoreHandle_t shelterCreate = NULL;
+TaskHandle_t alienCreationTaskHandle=NULL;
 TaskHandle_t collisionDetectionTaskHandle=NULL;
 int debugVar = 0;
 static TaskHandle_t LeftNumber = NULL;
@@ -92,6 +93,14 @@ static StackType_t uxTimerTaskStack[ configTIMER_TASK_STACK_DEPTH ];
     configTIMER_TASK_STACK_DEPTH is specified in words, not bytes. */
     *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
 }
+typedef struct alien1_t{
+    int posX;
+    int posY;
+    bool alive;
+    bool active;
+    SemaphoreHandle_t lock;
+}alien1_t;
+alien1_t  aliens_1[1];
 typedef struct shelterblock_t{
         int posX;
         int posY;
@@ -344,32 +353,6 @@ void checkDraw(unsigned char status, const char *msg)
         }
     }   
 }
-/*void vDrawButtonText(int buttonPresses_A,
-                    int buttonPresses_B,
-                    int buttonPresses_C,
-                    int buttonPresses_D )   
-{
-    
-    static char str[100] = { 0 };
-    sprintf(str, "Axis 1: %5d | Axis 2: %5d", tumEventGetMouseX(),
-            tumEventGetMouseY());
-
-    checkDraw(tumDrawText(str, 10, DEFAULT_FONT_SIZE * 0.5, TUMBlue),
-
-              __FUNCTION__);
-    sprintf(str, "A: %d | B: %d |C : %d | D: %d",
-            buttonPresses_A,
-            buttonPresses_B,
-            buttonPresses_C,
-            buttonPresses_D);
-    
-    checkDraw(tumDrawText(str, 10, DEFAULT_FONT_SIZE * 3, TUMBlue),
-                __FUNCTION__); 
-
-    
-
-}*/
-
 /*  
  *   The Task that refreshes the screen at a constant frame rate
  */
@@ -431,9 +414,17 @@ bool ButtonStateChangeCheck(int buttonSDLIndex)
 
 void Drawing_Task(void *pvParameters)
 {
-    //tumDrawBindThread();
+        // Mothership image handle
         image_handle_t ball_spritesheet_image =
         tumDrawLoadImage("../resources/images/mothership.png");
+
+        // Main logo at the top middle section 
+        image_handle_t mainlogo_image = 
+        tumDrawLoadImage("../resources/images/mainlogo.png");
+
+        //Alien Type 1 
+        image_handle_t alien1_image =
+        tumDrawLoadImage("../resources/images/firstalientype.png");
                
     while (1) {
 
@@ -443,26 +434,37 @@ void Drawing_Task(void *pvParameters)
                 xSemaphoreTake(ScreenLock, portMAX_DELAY);
                 tumDrawClear(Black); // Clear screen
                 tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);
+                tumDrawSetLoadedImageScale(mainlogo_image,0.1);
+                tumDrawLoadedImage(mainlogo_image,275,20);
+
+                //Drawing the shelter blocks
                 for (int counter =0; counter <20;counter++){
                     if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
                         if(shelterBlocks[counter].alive==true){
-                            tumDrawFilledBox(shelterBlocks[counter].posX,shelterBlocks[counter].posY,25,10,Teal);
+                            tumDrawFilledBox(shelterBlocks[counter].posX,shelterBlocks[counter].posY,25,2,White);
                         }
-
                         xSemaphoreGive(shelterBlocks[counter].lock);
                     }
-                }    
+                }   
+
+                //Drawing Missiles fired by our mother ship and the ship itself
                 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){	
-                tumDrawLoadedImage(ball_spritesheet_image,spaceShipStruct.mothershipXPosition,
-                                     spaceShipStruct.mothershipYPosition);
-                if (spaceShipStruct.attackState){
-                    tumDrawFilledBox(spaceShipStruct.spaceShipMissileX+10,spaceShipStruct.spaceShipMissileY,3,5,Red);
-                    
-                    /*tumDrawArrow(spaceShipStruct.spaceShipMissileX,spaceShipStruct.spaceShipMissileY,
-                spaceShipStruct.spaceShipMissileX,spaceShipStruct.spaceShipMissileY+1,3,2,Green);*/
+                    tumDrawLoadedImage(ball_spritesheet_image,spaceShipStruct.mothershipXPosition,
+                                        spaceShipStruct.mothershipYPosition);                  
+                        if (spaceShipStruct.attackState){
+                            tumDrawFilledBox(spaceShipStruct.spaceShipMissileX+10,spaceShipStruct.spaceShipMissileY,3,5,Red);
+                        }
+                    xSemaphoreGive(spaceShipStruct.lock);
                 }
-                xSemaphoreGive(spaceShipStruct.lock);
-                }
+
+                //Drawing the first type of aliens 
+                if(xSemaphoreTake(aliens_1[0].lock,portMAX_DELAY)==pdTRUE){
+                        if(aliens_1[0].alive) {
+                        tumDrawSetLoadedImageScale(alien1_image,0.05);    
+                        tumDrawLoadedImage(alien1_image,aliens_1[0].posX,aliens_1[0].posY);
+                        }
+                    xSemaphoreGive(aliens_1[0].lock);    
+                }   
                 vDrawFPS();
                 xSemaphoreGive(ScreenLock);
             }
@@ -516,13 +518,7 @@ xSemaphoreGive(spaceShipStruct.lock);
                     }}
                     xSemaphoreGive(buttons.lock);
                 }
-            
-                // IN CASE I WANTED SPACESHIP CONTROLS WITH DEBOUNCED BUTTONS
-                /*if (ButtonStateChangeCheck(KEYCODE(RIGHT))==true){
-                        mothershipXPosition+=10;}
-                if (ButtonStateChangeCheck(KEYCODE(LEFT))==true){
-                        mothershipXPosition-=10;}*/       
-
+                
                 if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
                         vSpaceshipShoot();}  
                 if (ButtonStateChangeCheck(KEYCODE(O))==true){
@@ -533,7 +529,9 @@ xSemaphoreGive(spaceShipStruct.lock);
                     if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
                 }
                 xSemaphoreGive(spaceShipStruct.lock);
-                }  
+                }
+
+
                 vTaskDelay((TickType_t)20);
             }
             vCheckStateInput();
@@ -585,6 +583,8 @@ void shelterCreatingTask(){
 void collisionDetectionTask(){
     while(1){
         if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){ //to get the access to the missile's position
+
+            //Collision detection between the mothership's missile and the shelter blocks
             for (int counter =0; counter <20;counter++){
                 if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
                     if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<13 && 
@@ -595,11 +595,35 @@ void collisionDetectionTask(){
                 xSemaphoreGive(shelterBlocks[counter].lock);    
                 }
             }
+
+            //Collision detection between the mothership's missile and aliens of type 1
+            if(xSemaphoreTake(aliens_1[0].lock,portMAX_DELAY)==pdTRUE){
+                if (abs(spaceShipStruct.spaceShipMissileY- aliens_1[0].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -aliens_1[0].posX)<13 && 
+                    aliens_1[0].alive) {
+                        aliens_1[0].alive=false;
+                        spaceShipStruct.attackState=false;
+                    }
+                xSemaphoreGive(aliens_1[0].lock);
+            }
+
         xSemaphoreGive(spaceShipStruct.lock);
         } 
         
         vTaskDelay((TickType_t)20);
 
+    }
+}
+
+void alienCreationTask(){
+    //alien variable initialisation
+    if (xSemaphoreTake(aliens_1[0].lock,portMAX_DELAY)==pdTRUE){ 
+    aliens_1[0].active=false;
+    aliens_1[0].alive=true;
+    aliens_1[0].posX=200;
+    aliens_1[0].posY=200;
+    xSemaphoreGive(aliens_1[0].lock);}
+    while(1){
+        vTaskDelay((TickType_t)20);
     }
 }
 #define LBI 0x01
@@ -611,7 +635,7 @@ uint32_t NotificationBuffer;
         if (NotificationBuffer | LBI){
             /*if(xSemaphoreTake(Exercise3VariableIncrementationStruct.lock, portMAX_DELAY) == pdTRUE){
                 Exercise3VariableIncrementationStruct.LeftNumber++;
-                xSemaphoreGive(Exercise3VariableIncrementationStruct.lock);*/ debugvarr222++;
+                xSemaphoreGive(Exercise3VariableIncrementationStruct.lock);*/ 
             }
         }
         
@@ -709,7 +733,6 @@ void vExercise3(void *pvParameters){
         LeftCircleFlag = !LeftCircleFlag;
         
     }
-    //printf("Notification Buffer: 0x%x\n", NotificationBuffer);
     xSemaphoreGive(DrawSignal);
     debugVarrunningcheck++;
 
@@ -742,7 +765,7 @@ int main(int argc, char *argv[])
     for (int counter =0; counter <20;counter++){
     shelterBlocks[counter].lock=xSemaphoreCreateMutex();
     }
-    
+    aliens_1[0].lock = xSemaphoreCreateMutex();
     if (!buttons.lock) {
         PRINT_ERROR("Failed to create buttons lock");
         goto err_buttons_lock;
@@ -791,6 +814,8 @@ int main(int argc, char *argv[])
     }
     xTaskCreate(shelterCreatingTask,"task that creates a shelter",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &shelterCreatingTaskHandle);
+    xTaskCreate(alienCreationTask,"task that creates aliens",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &alienCreationTaskHandle);    
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
