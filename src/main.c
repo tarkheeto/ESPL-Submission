@@ -425,6 +425,22 @@ void Drawing_Task(void *pvParameters)
         //Alien Type 1 
         image_handle_t alien1_image =
         tumDrawLoadImage("../resources/images/firstalientype.png");
+
+        //Alien Type 2
+        image_handle_t alien2_image =
+        tumDrawLoadImage("../resources/images/secondalientype.png");
+    
+        //Alien Type 3
+        image_handle_t alien3_image =
+        tumDrawLoadImage("../resources/images/thirdalientype.png");
+
+        //Alien Type 4
+        image_handle_t alien4_image =
+        tumDrawLoadImage("../resources/images/fourthalientype.png");
+
+        //Alien Type 5
+        image_handle_t alien5_image =
+        tumDrawLoadImage("../resources/images/fifthalientype.png");
                
     while (1) {
 
@@ -458,13 +474,42 @@ void Drawing_Task(void *pvParameters)
                 }
 
                 //Drawing the first type of aliens 
-                if(xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){
-                        if(aliens_1[0][0].alive) {
-                        tumDrawSetLoadedImageScale(alien1_image,0.05);    
-                        tumDrawLoadedImage(alien1_image,aliens_1[0][0].posX,aliens_1[0][0].posY);
+                for (int c1=0;c1<5;c1++){
+                    for(int c2=0;c2<8;c2++){
+                        if(xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                            if(aliens_1[c1][c2].alive) {
+                                switch(c1){ 
+                                case 0:    
+                                tumDrawSetLoadedImageScale(alien1_image,0.06);    
+                                tumDrawLoadedImage(alien1_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);
+                                break;
+
+                                case 1:
+                                tumDrawSetLoadedImageScale(alien2_image,0.06);    
+                                tumDrawLoadedImage(alien2_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);
+                                break;
+
+                                case 2:
+                                tumDrawSetLoadedImageScale(alien3_image,0.08);    
+                                tumDrawLoadedImage(alien3_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);    
+                                break;
+
+                                case 3:
+                                tumDrawSetLoadedImageScale(alien4_image,0.07);    
+                                tumDrawLoadedImage(alien4_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);    
+                                break;
+
+                                case 4:
+                                tumDrawSetLoadedImageScale(alien5_image,0.09);    
+                                tumDrawLoadedImage(alien5_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);    
+                                break;
+                                }
+                            }
+                            xSemaphoreGive(aliens_1[c1][c2].lock);
                         }
-                    xSemaphoreGive(aliens_1[0][0].lock);    
-                }   
+                    }
+                }
+
                 vDrawFPS();
                 xSemaphoreGive(ScreenLock);
             }
@@ -596,15 +641,28 @@ void collisionDetectionTask(){
                 }
             }
 
-            //Collision detection between the mothership's missile and aliens of type 1
-            if(xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){
+            //Collision detection between the mothership's missile and aliens 
+            for(int c1=0;c1<5;c1++){
+                for(int c2=0;c2<8;c2++){
+                    if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                        if (abs(spaceShipStruct.spaceShipMissileY- aliens_1[c1][c2].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -aliens_1[c1][c2].posX)<13 && 
+                            aliens_1[c1][c2].alive) {
+                                aliens_1[c1][c2].alive=false;
+                                spaceShipStruct.attackState=false;
+                            }
+                        xSemaphoreGive(aliens_1[c1][c2].lock);
+                    }
+                }
+            }
+
+            /*if(xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){
                 if (abs(spaceShipStruct.spaceShipMissileY- aliens_1[0][0].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -aliens_1[0][0].posX)<13 && 
                     aliens_1[0][0].alive) {
                         aliens_1[0][0].alive=false;
                         spaceShipStruct.attackState=false;
                     }
                 xSemaphoreGive(aliens_1[0][0].lock);
-            }
+            }*/
 
         xSemaphoreGive(spaceShipStruct.lock);
         } 
@@ -618,15 +676,38 @@ void alienCreationTask(){
     //alien variable initialisation
     for(int c1 =0 ; c1 < 5 ; c1++){
         for(int c2 = 0; c2 <8 ;c2++){
-               
+            if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                aliens_1[c1][c2].active=false;
+                aliens_1[c1][c2].alive=true;
+                aliens_1[c1][c2].posX=100 + c2*60;
+                switch (c1){
+                    case 0:
+                    aliens_1[c1][c2].posY=80;
+                    break;
+                    case 1:
+                    aliens_1[c1][c2].posY=120;
+                    break;
+                    case 2:
+                    aliens_1[c1][c2].posY=160;
+                    break;
+                    case 3:
+                    aliens_1[c1][c2].posY=200;
+                    break;
+                    case 4:
+                    aliens_1[c1][c2].posY=240;
+                    break;
+                }
+                xSemaphoreGive(aliens_1[c1][c2].lock);
+            }
+
         }
     }
-    if (xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){ 
+    /*if (xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){ 
     aliens_1[0][0].active=false;
     aliens_1[0][0].alive=true;
     aliens_1[0][0].posX=10;
     aliens_1[0][0].posY=80;
-    xSemaphoreGive(aliens_1[0][0].lock);}
+    xSemaphoreGive(aliens_1[0][0].lock);}*/
     while(1){
         vTaskDelay((TickType_t)20);
     }
