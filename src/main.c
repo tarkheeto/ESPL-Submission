@@ -36,6 +36,9 @@
 #define STARTING_STATE STATE_ONE
 
 #define STATE_DEBOUNCE_DELAY 300
+typedef struct score_t{int score;
+                        SemaphoreHandle_t lock;}score_t;
+score_t score;
 SemaphoreHandle_t shelterCreate = NULL;
 TaskHandle_t alienCreationTaskHandle=NULL;
 TaskHandle_t collisionDetectionTaskHandle=NULL;
@@ -441,6 +444,8 @@ void Drawing_Task(void *pvParameters)
         //Alien Type 5
         image_handle_t alien5_image =
         tumDrawLoadImage("../resources/images/fifthalientype.png");
+
+        static char strdt[10] = { 0 };
                
     while (1) {
 
@@ -452,6 +457,16 @@ void Drawing_Task(void *pvParameters)
                 tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);
                 tumDrawSetLoadedImageScale(mainlogo_image,0.1);
                 tumDrawLoadedImage(mainlogo_image,275,20);
+
+                //Score drawing
+                if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+                    sprintf(strdt,"Score: %d",score.score);
+                    tumDrawText(strdt,10,
+                              DEFAULT_FONT_SIZE * 1,
+                              Yellow);
+                    xSemaphoreGive(score.lock);
+                }
+
 
                 //Drawing the shelter blocks
                 for (int counter =0; counter <20;counter++){
@@ -626,6 +641,7 @@ void shelterCreatingTask(){
     }
 }
 void collisionDetectionTask(){
+    
     while(1){
         if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){ //to get the access to the missile's position
 
@@ -649,6 +665,10 @@ void collisionDetectionTask(){
                             aliens_1[c1][c2].alive) {
                                 aliens_1[c1][c2].alive=false;
                                 spaceShipStruct.attackState=false;
+                                if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+                                    score.score++;
+                                    xSemaphoreGive(score.lock);
+                                }
                             }
                         xSemaphoreGive(aliens_1[c1][c2].lock);
                     }
@@ -673,6 +693,12 @@ void collisionDetectionTask(){
 }
 
 void alienCreationTask(){
+    // Score initialisation
+    if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+        score.score=0;
+        xSemaphoreGive(score.lock);
+    }
+
     //alien variable initialisation
     for(int c1 =0 ; c1 < 5 ; c1++){
         for(int c2 = 0; c2 <8 ;c2++){
@@ -846,7 +872,7 @@ int main(int argc, char *argv[])
         PRINT_ERROR("Failed to initialize audio");
         goto err_init_audio;
     }
-
+    score.lock = xSemaphoreCreateMutex();
     buttons.lock = xSemaphoreCreateMutex(); // Locking mechanism
     for (int counter =0; counter <20;counter++){
     shelterBlocks[counter].lock=xSemaphoreCreateMutex();
