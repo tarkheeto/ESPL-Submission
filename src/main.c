@@ -36,9 +36,14 @@
 #define STARTING_STATE STATE_ONE
 
 #define STATE_DEBOUNCE_DELAY 300
+SemaphoreHandle_t horizontalAlienMotion=NULL;
 typedef struct score_t{int score;
-                        SemaphoreHandle_t lock;}score_t;
+int level;
+SemaphoreHandle_t lock;}score_t;
 score_t score;
+TaskHandle_t aliensMovingOneTaskHandle=NULL;
+TaskHandle_t aliensMovingTwoTaskHandle=NULL;
+SemaphoreHandle_t aliensCreate=NULL;
 SemaphoreHandle_t shelterCreate = NULL;
 TaskHandle_t alienCreationTaskHandle=NULL;
 TaskHandle_t collisionDetectionTaskHandle=NULL;
@@ -131,6 +136,7 @@ typedef struct Exercise3VariableIncrementationStruct {
 Exercise3VariableIncrementationStruct_t Exercise3VariableIncrementationStruct;
 static SemaphoreHandle_t RightButtonSignal=NULL;
 static SemaphoreHandle_t SpaceShipMissileSem=NULL;
+static TaskHandle_t LevelIncreasingTaskHandle=NULL;
 const unsigned char next_state_signal = NEXT_TASK;
 const unsigned char prev_state_signal = PREV_TASK;
 static TaskHandle_t StateMachine = NULL;
@@ -675,15 +681,6 @@ void collisionDetectionTask(){
                 }
             }
 
-            /*if(xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){
-                if (abs(spaceShipStruct.spaceShipMissileY- aliens_1[0][0].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -aliens_1[0][0].posX)<13 && 
-                    aliens_1[0][0].alive) {
-                        aliens_1[0][0].alive=false;
-                        spaceShipStruct.attackState=false;
-                    }
-                xSemaphoreGive(aliens_1[0][0].lock);
-            }*/
-
         xSemaphoreGive(spaceShipStruct.lock);
         } 
         
@@ -696,6 +693,7 @@ void alienCreationTask(){
     // Score initialisation
     if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
         score.score=0;
+        score.level=0;
         xSemaphoreGive(score.lock);
     }
 
@@ -728,16 +726,127 @@ void alienCreationTask(){
 
         }
     }
-    /*if (xSemaphoreTake(aliens_1[0][0].lock,portMAX_DELAY)==pdTRUE){ 
-    aliens_1[0][0].active=false;
-    aliens_1[0][0].alive=true;
-    aliens_1[0][0].posX=10;
-    aliens_1[0][0].posY=80;
-    xSemaphoreGive(aliens_1[0][0].lock);}*/
     while(1){
+        if(xSemaphoreTake(aliensCreate,0)==pdTRUE){
+                for(int c1 =0 ; c1 < 5 ; c1++){
+                    for(int c2 = 0; c2 <8 ;c2++){
+                        if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                            aliens_1[c1][c2].active=false;
+                            aliens_1[c1][c2].alive=true;
+                            aliens_1[c1][c2].posX=100 + c2*60;
+                            switch (c1){
+                                case 0:
+                                aliens_1[c1][c2].posY=80;
+                                break;
+                                case 1:
+                                aliens_1[c1][c2].posY=120;
+                                break;
+                                case 2:
+                                aliens_1[c1][c2].posY=160;
+                                break;
+                                case 3:
+                                aliens_1[c1][c2].posY=200;
+                                break;
+                                case 4:
+                                aliens_1[c1][c2].posY=240;
+                                break;
+                            }
+                            xSemaphoreGive(aliens_1[c1][c2].lock);
+                        }
+
+                    }
+                }
+        }
         vTaskDelay((TickType_t)20);
     }
 }
+
+void LevelIncreasingTask(){
+    while(1){
+        //Check if we reached a multiple of 50 so that we could re draw the aliens and later on change their speeds accordingly
+        if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+            if (score.score%40==0 && score.score != 0){
+                score.level++;
+                xSemaphoreGive(aliensCreate);
+                xSemaphoreGive(shelterCreate);
+            }
+            xSemaphoreGive(score.lock);
+        }
+        vTaskDelay((TickType_t)20);
+    }
+}
+typedef struct aliensHorizontalMotionStruct_t{
+    int posXCounter;
+    bool motiontoggle;
+    SemaphoreHandle_t lock;
+}aliensHorizontalMotionStruct_t;
+aliensHorizontalMotionStruct_t aliensHorizontalMotionStruct;
+
+void AliensMovingOneTask(){
+    int lvl;
+    if (xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){
+        aliensHorizontalMotionStruct.posXCounter=0;
+        aliensHorizontalMotionStruct.motiontoggle=false;
+        xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+    }
+    while(1){
+       if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
+           if(aliensHorizontalMotionStruct.motiontoggle==false){ 
+                for (int c1 =0;c1<5;c1++){
+                    for(int c2 = 0; c2<8; c2++){
+                        if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                            if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+                                lvl=score.level;
+                                xSemaphoreGive(score.lock);
+                            }
+                            aliens_1[c1][c2].posX+=1 + lvl;
+                            xSemaphoreGive(aliens_1[c1][c2].lock);
+                        }
+                        
+                    }
+                }
+                aliensHorizontalMotionStruct.posXCounter +=1+lvl;
+                if (aliensHorizontalMotionStruct.posXCounter >=80){
+                    aliensHorizontalMotionStruct.posXCounter=0;
+                    aliensHorizontalMotionStruct.motiontoggle=true;
+                }
+            }
+            xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+        }
+        vTaskDelay((TickType_t)20);
+    }       
+}
+
+void AliensMovingTwoTask(){
+int lvl;
+    while(1){
+       if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
+           if(aliensHorizontalMotionStruct.motiontoggle==true){ 
+                for (int c1 =0;c1<5;c1++){
+                    for(int c2 = 0; c2<8; c2++){
+                        if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                            if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+                                lvl=score.level;
+                                xSemaphoreGive(score.lock);
+                            }
+                            aliens_1[c1][c2].posX-=1 + lvl;
+                            xSemaphoreGive(aliens_1[c1][c2].lock);
+                        }
+                        
+                    }
+                }
+                aliensHorizontalMotionStruct.posXCounter +=1+lvl;
+                if (aliensHorizontalMotionStruct.posXCounter >=80){
+                    aliensHorizontalMotionStruct.posXCounter=0;
+                    aliensHorizontalMotionStruct.motiontoggle=false;
+                }
+            }
+            xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+        }
+        vTaskDelay((TickType_t)20);
+    }       
+}
+
 #define LBI 0x01
 int debugvarr222 =0;
 void vLeftNumber(void *pvParameters){
@@ -873,6 +982,7 @@ int main(int argc, char *argv[])
         goto err_init_audio;
     }
     score.lock = xSemaphoreCreateMutex();
+    aliensHorizontalMotionStruct.lock = xSemaphoreCreateMutex();
     buttons.lock = xSemaphoreCreateMutex(); // Locking mechanism
     for (int counter =0; counter <20;counter++){
     shelterBlocks[counter].lock=xSemaphoreCreateMutex();
@@ -888,6 +998,7 @@ int main(int argc, char *argv[])
         goto err_buttons_lock;
     }
     shelterCreate =xSemaphoreCreateBinary();
+    aliensCreate = xSemaphoreCreateBinary();
     spaceShipStruct.lock = xSemaphoreCreateMutex();
     StateQueue = xQueueCreate(STATE_QUEUE_LENGTH, sizeof(unsigned char));
     if (!StateQueue) {
@@ -931,8 +1042,19 @@ int main(int argc, char *argv[])
     }
     xTaskCreate(shelterCreatingTask,"task that creates a shelter",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &shelterCreatingTaskHandle);
+
+    xTaskCreate(LevelIncreasingTask,"task that increases the level",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &LevelIncreasingTaskHandle);
+
     xTaskCreate(alienCreationTask,"task that creates aliens",mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &alienCreationTaskHandle);    
+                mainGENERIC_PRIORITY, &alienCreationTaskHandle);   
+
+    xTaskCreate(AliensMovingOneTask,"task that moves aliens 1",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &aliensMovingOneTaskHandle);  
+
+    xTaskCreate(AliensMovingTwoTask,"task that moves aliens 1",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &aliensMovingTwoTaskHandle); 
+
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
