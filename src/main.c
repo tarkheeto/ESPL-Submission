@@ -703,23 +703,27 @@ void alienCreationTask(){
             if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
                 aliens_1[c1][c2].active=false;
                 aliens_1[c1][c2].alive=true;
-                aliens_1[c1][c2].posX=100 + c2*60;
                 switch (c1){
-                    case 0:
-                    aliens_1[c1][c2].posY=80;
-                    break;
-                    case 1:
-                    aliens_1[c1][c2].posY=120;
-                    break;
-                    case 2:
-                    aliens_1[c1][c2].posY=160;
-                    break;
-                    case 3:
-                    aliens_1[c1][c2].posY=200;
-                    break;
-                    case 4:
-                    aliens_1[c1][c2].posY=240;
-                    break;
+                                case 0:
+                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posY=80;
+                                break;
+                                case 1:
+                                aliens_1[c1][c2].posX= 180+c2*60;
+                                aliens_1[c1][c2].posY=120;
+                                break;
+                                case 2:
+                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posY=160;
+                                break;
+                                case 3:
+                                aliens_1[c1][c2].posX= 180+c2*60;
+                                aliens_1[c1][c2].posY=200;
+                                break;
+                                case 4:
+                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posY=240;
+                                break;
                 }
                 xSemaphoreGive(aliens_1[c1][c2].lock);
             }
@@ -733,21 +737,25 @@ void alienCreationTask(){
                         if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
                             aliens_1[c1][c2].active=false;
                             aliens_1[c1][c2].alive=true;
-                            aliens_1[c1][c2].posX=100 + c2*60;
                             switch (c1){
                                 case 0:
+                                aliens_1[c1][c2].posX= c2*60;
                                 aliens_1[c1][c2].posY=80;
                                 break;
                                 case 1:
+                                aliens_1[c1][c2].posX= 180+c2*60;
                                 aliens_1[c1][c2].posY=120;
                                 break;
                                 case 2:
+                                aliens_1[c1][c2].posX= c2*60;
                                 aliens_1[c1][c2].posY=160;
                                 break;
                                 case 3:
+                                aliens_1[c1][c2].posX= 180+c2*60;
                                 aliens_1[c1][c2].posY=200;
                                 break;
                                 case 4:
+                                aliens_1[c1][c2].posX= c2*60;
                                 aliens_1[c1][c2].posY=240;
                                 break;
                             }
@@ -795,18 +803,26 @@ void AliensMovingOneTask(){
                 for (int c1 =0;c1<5;c1++){
                     for(int c2 = 0; c2<8; c2++){
                         if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                            if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-                                lvl=score.level;
-                                xSemaphoreGive(score.lock);
+                            switch (c1) {
+                                case 0: aliens_1[c1][c2].posX+=1 ;
+                                        break;
+                                case 1:aliens_1[c1][c2].posX-=1 ;
+                                       break;
+                                case 2:aliens_1[c1][c2].posX+=1 ;
+                                       break;
+                                case 3:aliens_1[c1][c2].posX-=1 ;
+                                       break;
+                                case 4:aliens_1[c1][c2].posX+=1 ;
+                                       break;
                             }
-                            aliens_1[c1][c2].posX+=1 + lvl;
+                            //aliens_1[c1][c2].posX+=1 ;
                             xSemaphoreGive(aliens_1[c1][c2].lock);
                         }
                         
                     }
                 }
-                aliensHorizontalMotionStruct.posXCounter +=1+lvl;
-                if (aliensHorizontalMotionStruct.posXCounter >=80){
+                aliensHorizontalMotionStruct.posXCounter +=1 ;
+                if (aliensHorizontalMotionStruct.posXCounter >=160){
                     aliensHorizontalMotionStruct.posXCounter=0;
                     aliensHorizontalMotionStruct.motiontoggle=true;
                 }
@@ -825,18 +841,25 @@ int lvl;
                 for (int c1 =0;c1<5;c1++){
                     for(int c2 = 0; c2<8; c2++){
                         if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                            if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-                                lvl=score.level;
-                                xSemaphoreGive(score.lock);
+                            switch (c1) {
+                                case 0: aliens_1[c1][c2].posX-=1 ;
+                                        break;
+                                case 1:aliens_1[c1][c2].posX+=1 ;
+                                       break;
+                                case 2:aliens_1[c1][c2].posX-=1 ;
+                                       break;
+                                case 3:aliens_1[c1][c2].posX+=1 ;
+                                       break;
+                                case 4:aliens_1[c1][c2].posX-=1 ;
+                                       break;
                             }
-                            aliens_1[c1][c2].posX-=1 + lvl;
+                            
                             xSemaphoreGive(aliens_1[c1][c2].lock);
                         }
-                        
                     }
                 }
-                aliensHorizontalMotionStruct.posXCounter +=1+lvl;
-                if (aliensHorizontalMotionStruct.posXCounter >=80){
+                aliensHorizontalMotionStruct.posXCounter +=1;
+                if (aliensHorizontalMotionStruct.posXCounter >=160){
                     aliensHorizontalMotionStruct.posXCounter=0;
                     aliensHorizontalMotionStruct.motiontoggle=false;
                 }
