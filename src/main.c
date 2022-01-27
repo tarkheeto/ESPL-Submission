@@ -631,23 +631,21 @@ xSemaphoreGive(spaceShipStruct.lock);
 void shelterCreatingTask(){
     for (int counter =0; counter <20;counter++){
         if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
-        if (counter<5){     
         shelterBlocks[counter].alive=true;    
-        shelterBlocks[counter].posX=50 + counter*25;
+        if (counter<5){     
+        shelterBlocks[counter].posX=100 + counter*25;
         shelterBlocks[counter].posY=350;
         }
         if (counter>=5 && counter< 10){
-        shelterBlocks[counter].alive=true;    
         shelterBlocks[counter].posX= counter*25;
         shelterBlocks[counter].posY=300;
         }
         if (counter>=10 && counter< 15){
-        shelterBlocks[counter].alive=true;    
         shelterBlocks[counter].posX= counter*25;
         shelterBlocks[counter].posY=325;
         }
         if (counter>=15){
-        shelterBlocks[counter].alive=true;    
+        
         shelterBlocks[counter].posX=20+counter*25;
         shelterBlocks[counter].posY=350;
         }
@@ -679,7 +677,7 @@ void collisionDetectionTask(){
             //Collision detection between the mothership's missile and the shelter blocks
             for (int counter =0; counter <20;counter++){
                 if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
-                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<13 && 
+                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<=4 && (abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<=13) && 
                     shelterBlocks[counter].alive) {
                         shelterBlocks[counter].alive=false;
                         spaceShipStruct.attackState=false;
@@ -687,7 +685,6 @@ void collisionDetectionTask(){
                 xSemaphoreGive(shelterBlocks[counter].lock);    
                 }
             }
-
             //Collision detection between the mothership's missile and aliens 
             for(int c1=0;c1<5;c1++){
                 for(int c2=0;c2<8;c2++){
@@ -836,7 +833,7 @@ void AlienMissiletrackingTask(){
                 if(alienMissilesStruct[c1].missileActive){
                     alienMissilesStruct[c1].missilePosY++;
                     if (alienMissilesStruct[c1].missilePosY>500){
-                        alienMissilesStruct[c1].missileActive==false;
+                        alienMissilesStruct[c1].missileActive=false;
                     }
                 }
                 xSemaphoreGive(alienMissilesStruct[c1].lock);
@@ -867,14 +864,13 @@ typedef struct aliensHorizontalMotionStruct_t{
 aliensHorizontalMotionStruct_t aliensHorizontalMotionStruct;
 
 void AliensMovingOneTask(){
-    int lvl;
-    if (xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){
+    /*if (xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){
         aliensHorizontalMotionStruct.posXCounter=0;
         aliensHorizontalMotionStruct.motiontoggle=false;
         xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-    }
+    }*/
     while(1){
-       if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
+     /*  if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
            if(aliensHorizontalMotionStruct.motiontoggle==false){ 
                 for (int c1 =0;c1<5;c1++){
                     for(int c2 = 0; c2<8; c2++){
@@ -904,15 +900,14 @@ void AliensMovingOneTask(){
                 }
             }
             xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-        }
+        }*/
         vTaskDelay((TickType_t)20);
     }       
 }
 
 void AliensMovingTwoTask(){
-int lvl;
     while(1){
-       if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
+       /*if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
            if(aliensHorizontalMotionStruct.motiontoggle==true){ 
                 for (int c1 =0;c1<5;c1++){
                     for(int c2 = 0; c2<8; c2++){
@@ -941,7 +936,7 @@ int lvl;
                 }
             }
             xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-        }
+        }*/
         vTaskDelay((TickType_t)20);
     }       
 }
@@ -1130,7 +1125,7 @@ int main(int argc, char *argv[])
         goto err_demotask;
     }
     xTaskCreate(collisionDetectionTask,"collision Detection Task", mainGENERIC_STACK_SIZE * 2, NULL,
-                    mainGENERIC_PRIORITY, &collisionDetectionTaskHandle);
+                    mainGENERIC_PRIORITY+1, &collisionDetectionTaskHandle);
     if (xTaskCreate(PositionIncrementation_Task, "Position Incrementation Task", mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &PositionIncrementationTask_Handle) != pdPASS) {
     goto err_demotask;
