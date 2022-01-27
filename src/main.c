@@ -37,19 +37,10 @@
 
 #define STATE_DEBOUNCE_DELAY 300
 SemaphoreHandle_t horizontalAlienMotion=NULL;
-TaskHandle_t AlienMissiletrackingTaskHandle=NULL;
 typedef struct score_t{int score;
 int level;
 SemaphoreHandle_t lock;}score_t;
 score_t score;
-typedef struct alienMissiles_t{
-    int missilePosX;
-    int missilePosY;
-    bool missileActive;
-    SemaphoreHandle_t lock;
-}alienMissiles_t;
-alienMissiles_t alienMissilesStruct[8];
-TaskHandle_t AlienShootingTaskHandle=NULL;
 TaskHandle_t aliensMovingOneTaskHandle=NULL;
 TaskHandle_t aliensMovingTwoTaskHandle=NULL;
 SemaphoreHandle_t aliensCreate=NULL;
@@ -58,7 +49,6 @@ TaskHandle_t alienCreationTaskHandle=NULL;
 TaskHandle_t collisionDetectionTaskHandle=NULL;
 int debugVar = 0;
 static TaskHandle_t LeftNumber = NULL;
-static TaskHandle_t alienShootingTaskHandle=NULL;
 /* configSUPPORT_STATIC_ALLOCATION is set to 1, so the application must provide an
 implementation of vApplicationGetIdleTaskMemory() to provide the memory that is
 used by the Idle task. */
@@ -504,19 +494,6 @@ void Drawing_Task(void *pvParameters)
                     xSemaphoreGive(spaceShipStruct.lock);
                 }
 
-                // Drawing Missiles fired by the random aliens
-
-                for (int c1=0;c1<8;c1++){
-                    if (xSemaphoreTake(alienMissilesStruct[c1].lock,portMAX_DELAY)==pdTRUE){
-                        if(alienMissilesStruct[c1].missileActive){
-                            tumDrawFilledBox(alienMissilesStruct[c1].missilePosX,alienMissilesStruct[c1].missilePosY,3,5,White);
-                        }
-                        xSemaphoreGive(alienMissilesStruct[c1].lock);
-                    }
-
-                }
-                
-
                 //Drawing the first type of aliens 
                 for (int c1=0;c1<5;c1++){
                     for(int c2=0;c2<8;c2++){
@@ -576,8 +553,6 @@ void vSpaceshipShoot(){
     }
   
 }
-
-
 void PositionIncrementation_Task(void *pvParameters){
 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
 spaceShipStruct.attackState=false;    
@@ -616,7 +591,7 @@ xSemaphoreGive(spaceShipStruct.lock);
                     
                         xSemaphoreGive(shelterCreate);}      
                 if (spaceShipStruct.attackState){
-                    spaceShipStruct.spaceShipMissileY-=20;
+                    spaceShipStruct.spaceShipMissileY-=40;
                     if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
                 }
                 xSemaphoreGive(spaceShipStruct.lock);
@@ -631,21 +606,23 @@ xSemaphoreGive(spaceShipStruct.lock);
 void shelterCreatingTask(){
     for (int counter =0; counter <20;counter++){
         if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
-        shelterBlocks[counter].alive=true;    
         if (counter<5){     
-        shelterBlocks[counter].posX=100 + counter*25;
+        shelterBlocks[counter].alive=true;    
+        shelterBlocks[counter].posX=50 + counter*25;
         shelterBlocks[counter].posY=350;
         }
         if (counter>=5 && counter< 10){
+        shelterBlocks[counter].alive=true;    
         shelterBlocks[counter].posX= counter*25;
         shelterBlocks[counter].posY=300;
         }
         if (counter>=10 && counter< 15){
+        shelterBlocks[counter].alive=true;    
         shelterBlocks[counter].posX= counter*25;
         shelterBlocks[counter].posY=325;
         }
         if (counter>=15){
-        
+        shelterBlocks[counter].alive=true;    
         shelterBlocks[counter].posX=20+counter*25;
         shelterBlocks[counter].posY=350;
         }
@@ -677,7 +654,7 @@ void collisionDetectionTask(){
             //Collision detection between the mothership's missile and the shelter blocks
             for (int counter =0; counter <20;counter++){
                 if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
-                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<=4 && (abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<=13) && 
+                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<13 && 
                     shelterBlocks[counter].alive) {
                         shelterBlocks[counter].alive=false;
                         spaceShipStruct.attackState=false;
@@ -685,6 +662,7 @@ void collisionDetectionTask(){
                 xSemaphoreGive(shelterBlocks[counter].lock);    
                 }
             }
+
             //Collision detection between the mothership's missile and aliens 
             for(int c1=0;c1<5;c1++){
                 for(int c2=0;c2<8;c2++){
@@ -693,10 +671,6 @@ void collisionDetectionTask(){
                             aliens_1[c1][c2].alive) {
                                 aliens_1[c1][c2].alive=false;
                                 spaceShipStruct.attackState=false;
-                                aliens_1[c1][c2].active=false;
-                                if (c1 != 0){ 
-                                aliens_1[c1-1][c2].active=true;
-                                }
                                 if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
                                     score.score++;
                                     xSemaphoreGive(score.lock);
@@ -731,25 +705,24 @@ void alienCreationTask(){
                 aliens_1[c1][c2].alive=true;
                 switch (c1){
                                 case 0:
-                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posX=90+ c2*60;
                                 aliens_1[c1][c2].posY=80;
                                 break;
                                 case 1:
-                                aliens_1[c1][c2].posX= 180+c2*60;
+                                aliens_1[c1][c2].posX= 90+ c2*60;
                                 aliens_1[c1][c2].posY=120;
                                 break;
                                 case 2:
-                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posX= 90+ c2*60;
                                 aliens_1[c1][c2].posY=160;
                                 break;
                                 case 3:
-                                aliens_1[c1][c2].posX= 180+c2*60;
+                                aliens_1[c1][c2].posX= 90+ c2*60;
                                 aliens_1[c1][c2].posY=200;
                                 break;
                                 case 4:
-                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posX=90+ c2*60;
                                 aliens_1[c1][c2].posY=240;
-                                aliens_1[c1][c2].active=true;
                                 break;
                 }
                 xSemaphoreGive(aliens_1[c1][c2].lock);
@@ -758,7 +731,7 @@ void alienCreationTask(){
         }
     }
     while(1){
-        if(xSemaphoreTake(aliensCreate,0)==pdTRUE){
+        if(xSemaphoreTake(aliensCreate,portMAX_DELAY)==pdTRUE){
                 for(int c1 =0 ; c1 < 5 ; c1++){
                     for(int c2 = 0; c2 <8 ;c2++){
                         if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
@@ -766,25 +739,24 @@ void alienCreationTask(){
                             aliens_1[c1][c2].alive=true;
                             switch (c1){
                                 case 0:
-                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posX=90+ c2*60;
                                 aliens_1[c1][c2].posY=80;
                                 break;
                                 case 1:
-                                aliens_1[c1][c2].posX= 180+c2*60;
+                                aliens_1[c1][c2].posX= 90+ c2*60;
                                 aliens_1[c1][c2].posY=120;
                                 break;
                                 case 2:
-                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posX= 90+ c2*60;
                                 aliens_1[c1][c2].posY=160;
                                 break;
                                 case 3:
-                                aliens_1[c1][c2].posX= 180+c2*60;
+                                aliens_1[c1][c2].posX= 90+ c2*60;
                                 aliens_1[c1][c2].posY=200;
                                 break;
                                 case 4:
-                                aliens_1[c1][c2].posX= c2*60;
+                                aliens_1[c1][c2].posX=90+ c2*60;
                                 aliens_1[c1][c2].posY=240;
-                                aliens_1[c1][c2].active=true;
                                 break;
                             }
                             xSemaphoreGive(aliens_1[c1][c2].lock);
@@ -796,95 +768,41 @@ void alienCreationTask(){
         vTaskDelay((TickType_t)20);
     }
 }
-void vAlienShoot(){
 
-}
-void AlienShootingTask(){
-    int randomNumber;
-    while(1){
-            if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-                randomNumber= rand() % (7 + 1 - 0) + 0;
-                xSemaphoreGive(score.lock);
-            }
-            for(int c1=0;c1<5;c1++){
-                if (xSemaphoreTake(aliens_1[c1][randomNumber].lock,portMAX_DELAY)==pdTRUE){
 
-                
-                    if (aliens_1[c1][randomNumber].alive && aliens_1[c1][randomNumber].active){
-                        if(xSemaphoreTake(alienMissilesStruct[randomNumber].lock,portMAX_DELAY)==pdTRUE){
-                            alienMissilesStruct[randomNumber].missileActive=true;
-                            alienMissilesStruct[randomNumber].missilePosX=aliens_1[c1][randomNumber].posX;
-                            alienMissilesStruct[randomNumber].missilePosY=aliens_1[c1][randomNumber].posY;
-                            xSemaphoreGive(alienMissilesStruct[randomNumber].lock);
-                        }
-                    }
-                xSemaphoreGive(aliens_1[c1][randomNumber].lock);    
-                }
-            } 
-            vTaskDelay(pdMS_TO_TICKS(3000));
-    }     
-}
-
-void AlienMissiletrackingTask(){
-
-    while(1){
-        for(int c1=0;c1<8;c1++){
-            if(xSemaphoreTake(alienMissilesStruct[c1].lock,portMAX_DELAY)==pdTRUE){
-                if(alienMissilesStruct[c1].missileActive){
-                    alienMissilesStruct[c1].missilePosY++;
-                    if (alienMissilesStruct[c1].missilePosY>500){
-                        alienMissilesStruct[c1].missileActive=false;
-                    }
-                }
-                xSemaphoreGive(alienMissilesStruct[c1].lock);
-            }
-        }
-        vTaskDelay((TickType_t)20);
-    }
-}
-void LevelIncreasingTask(){
-    while(1){
-        //Check if we reached a multiple of 50 so that we could re draw the aliens and later on change their speeds accordingly
-        if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-            if (score.score%40==0 && score.score != 0){
-                score.level++;
-                xSemaphoreGive(aliensCreate);
-                xSemaphoreGive(shelterCreate);
-            }
-            xSemaphoreGive(score.lock);
-        }
-        vTaskDelay((TickType_t)20);
-    }
-}
 typedef struct aliensHorizontalMotionStruct_t{
     int posXCounter;
     bool motiontoggle;
+    bool excessMotionToggle;
     SemaphoreHandle_t lock;
 }aliensHorizontalMotionStruct_t;
 aliensHorizontalMotionStruct_t aliensHorizontalMotionStruct;
 
 void AliensMovingOneTask(){
-    /*if (xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){
+    int lvl;
+    int excessMotion;
+    if (xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){
         aliensHorizontalMotionStruct.posXCounter=0;
         aliensHorizontalMotionStruct.motiontoggle=false;
+        aliensHorizontalMotionStruct.excessMotionToggle=false;
         xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-    }*/
+    }
     while(1){
-     /*  if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
+       if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
            if(aliensHorizontalMotionStruct.motiontoggle==false){ 
                 for (int c1 =0;c1<5;c1++){
                     for(int c2 = 0; c2<8; c2++){
                         if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
                             switch (c1) {
-                                case 0: aliens_1[c1][c2].posX+=1 ;
+                                case 0: aliens_1[c1][c2].posX+=1;
                                         break;
-                                case 1:aliens_1[c1][c2].posX-=1 ;
+                                case 1:aliens_1[c1][c2].posX-=1;
                                        break;
-                                case 2:aliens_1[c1][c2].posX+=1 ;
+                                case 2:aliens_1[c1][c2].posX+=1;
                                        break;
-                                case 3:aliens_1[c1][c2].posX-=1 ;
+                                case 3:aliens_1[c1][c2].posX-=1;
                                        break;
-                                case 4:aliens_1[c1][c2].posX+=1 ;
+                                case 4:aliens_1[c1][c2].posX+=1;
                                        break;
                             }
                             //aliens_1[c1][c2].posX+=1 ;
@@ -893,35 +811,40 @@ void AliensMovingOneTask(){
                         
                     }
                 }
+                if (aliensHorizontalMotionStruct.excessMotionToggle==false){
+                    excessMotion=20;                    
+                }else {excessMotion=40;}
+
                 aliensHorizontalMotionStruct.posXCounter +=1 ;
-                if (aliensHorizontalMotionStruct.posXCounter >=160){
+                if (aliensHorizontalMotionStruct.posXCounter >=excessMotion){
                     aliensHorizontalMotionStruct.posXCounter=0;
                     aliensHorizontalMotionStruct.motiontoggle=true;
+                    aliensHorizontalMotionStruct.excessMotionToggle=true;
                 }
             }
             xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-        }*/
-        vTaskDelay((TickType_t)20);
+        }
+        vTaskDelay((TickType_t)40);
     }       
 }
 
 void AliensMovingTwoTask(){
     while(1){
-       /*if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
+       if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
            if(aliensHorizontalMotionStruct.motiontoggle==true){ 
                 for (int c1 =0;c1<5;c1++){
                     for(int c2 = 0; c2<8; c2++){
                         if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
                             switch (c1) {
-                                case 0: aliens_1[c1][c2].posX-=1 ;
+                                case 0: aliens_1[c1][c2].posX-=1;
                                         break;
-                                case 1:aliens_1[c1][c2].posX+=1 ;
+                                case 1:aliens_1[c1][c2].posX+=1;
                                        break;
-                                case 2:aliens_1[c1][c2].posX-=1 ;
+                                case 2:aliens_1[c1][c2].posX-=1;
                                        break;
-                                case 3:aliens_1[c1][c2].posX+=1 ;
+                                case 3:aliens_1[c1][c2].posX+=1;
                                        break;
-                                case 4:aliens_1[c1][c2].posX-=1 ;
+                                case 4:aliens_1[c1][c2].posX-=1;
                                        break;
                             }
                             
@@ -930,27 +853,31 @@ void AliensMovingTwoTask(){
                     }
                 }
                 aliensHorizontalMotionStruct.posXCounter +=1;
-                if (aliensHorizontalMotionStruct.posXCounter >=160){
+                if (aliensHorizontalMotionStruct.posXCounter >=40){
                     aliensHorizontalMotionStruct.posXCounter=0;
                     aliensHorizontalMotionStruct.motiontoggle=false;
                 }
             }
             xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-        }*/
-        vTaskDelay((TickType_t)20);
+        }
+        vTaskDelay((TickType_t)40);
     }       
 }
-
-void alienShootingTask(){
-
+void LevelIncreasingTask(){
     while(1){
-        for (int c1 =0;c1<5;c1++){
-
-            for(int c2=0;c2<8;c2++){
-                
+        //Check if we reached a multiple of 50 so that we could re draw the aliens and later on change their speeds accordingly
+        if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+            if (score.score%40==0 && score.score != 0){
+                score.level++;
+                xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY);
+                aliensHorizontalMotionStruct.excessMotionToggle=false;
+                xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+                xSemaphoreGive(aliensCreate);
+                xSemaphoreGive(shelterCreate);
             }
-
+            xSemaphoreGive(score.lock);
         }
+        vTaskDelay((TickType_t)20);
     }
 }
 #define LBI 0x01
@@ -1088,9 +1015,6 @@ int main(int argc, char *argv[])
         goto err_init_audio;
     }
     score.lock = xSemaphoreCreateMutex();
-    for(int cx =0;cx<8;cx++){
-        alienMissilesStruct[cx].lock=xSemaphoreCreateMutex();
-    }
     aliensHorizontalMotionStruct.lock = xSemaphoreCreateMutex();
     buttons.lock = xSemaphoreCreateMutex(); // Locking mechanism
     for (int counter =0; counter <20;counter++){
@@ -1125,7 +1049,7 @@ int main(int argc, char *argv[])
         goto err_demotask;
     }
     xTaskCreate(collisionDetectionTask,"collision Detection Task", mainGENERIC_STACK_SIZE * 2, NULL,
-                    mainGENERIC_PRIORITY+1, &collisionDetectionTaskHandle);
+                    mainGENERIC_PRIORITY, &collisionDetectionTaskHandle);
     if (xTaskCreate(PositionIncrementation_Task, "Position Incrementation Task", mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &PositionIncrementationTask_Handle) != pdPASS) {
     goto err_demotask;
@@ -1163,10 +1087,7 @@ int main(int argc, char *argv[])
 
     xTaskCreate(AliensMovingTwoTask,"task that moves aliens 1",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &aliensMovingTwoTaskHandle); 
-    xTaskCreate(AlienShootingTask,"task that moves aliens 1",mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &AlienShootingTaskHandle); 
-    xTaskCreate(AlienMissiletrackingTask,"task that tracks alien missiles",mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &AlienMissiletrackingTaskHandle);            
+
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
