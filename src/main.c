@@ -44,6 +44,7 @@ SemaphoreHandle_t horizontalAlienMotion=NULL;
 TaskHandle_t AlienMissiletrackingTaskHandle=NULL;
 typedef struct score_t{int score;
 int killscore;
+int highscore;
 int level;
 SemaphoreHandle_t lock;}score_t;
 score_t score;
@@ -1228,7 +1229,10 @@ void vPauseState(void *pvParameters){
     }
 }
 void vDeathState(){
-
+        image_handle_t gameover_image =
+        tumDrawLoadImage("../resources/images/gameover.png");        
+        tumDrawSetLoadedImageScale(gameover_image,0.5);
+        static char strdtt[20] = { 0 };
     while(1){
             tumEventFetchEvents(FETCH_EVENT_BLOCK |
                                 FETCH_EVENT_NO_GL_CHECK);
@@ -1238,8 +1242,25 @@ void vDeathState(){
                 xSemaphoreTake(ScreenLock, portMAX_DELAY);
                 tumDrawSetGlobalXOffset(0);
                 tumDrawSetGlobalYOffset(0);
-                tumDrawClear(Pink); // Clear screen
-                vDrawFPS();                    
+                tumDrawClear(Black); // Clear screen
+                tumDrawLoadedImage(gameover_image,170,100);
+                //showing the FPS in this state just felt weird 
+                //vDrawFPS();                    
+
+                //SCORE DRAWING
+                if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+                    if (score.killscore>score.highscore){
+                        score.highscore=score.killscore;
+                    }
+                    //reseting the killscore for if the user wants to play again
+                    score.killscore=0;
+                    sprintf(strdtt,"HIGHSCORE: %d",score.highscore);
+                    tumDrawText(strdtt,260,
+                              300,
+                              Yellow);
+                    xSemaphoreGive(score.lock);
+                }
+
                 xSemaphoreGive(ScreenLock);
                 xSemaphoreGive(DrawSignal);
                 }
