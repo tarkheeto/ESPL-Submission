@@ -679,7 +679,7 @@ void collisionDetectionTask(){
             //Collision detection between the mothership's missile and the shelter blocks
             for (int counter =0; counter <20;counter++){
                 if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
-                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<13 && 
+                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<8 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<15 && 
                     shelterBlocks[counter].alive) {
                         shelterBlocks[counter].alive=false;
                         spaceShipStruct.attackState=false;
@@ -711,8 +711,26 @@ void collisionDetectionTask(){
             }
 
         xSemaphoreGive(spaceShipStruct.lock);
+
         } 
         
+        // Collision detection between the alien Missiles and shelter
+            for (int counter =0; counter <20;counter++){
+                if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
+                    for(int x=0; x<8; x++){ 
+                        xSemaphoreTake(alienMissilesStruct[x].lock,portMAX_DELAY);
+                        if (abs(alienMissilesStruct[x].missilePosY- shelterBlocks[counter].posY)<8 && abs(alienMissilesStruct[x].missilePosX -shelterBlocks[counter].posX)<16 && 
+                        shelterBlocks[counter].alive) {
+                            shelterBlocks[counter].alive=false;
+                            spaceShipStruct.attackState=false;
+                            alienMissilesStruct[x].missileActive=false;
+                        }
+                        xSemaphoreGive(alienMissilesStruct[x].lock);
+                    }    
+                    xSemaphoreGive(shelterBlocks[counter].lock);    
+                }
+            }        
+
         vTaskDelay((TickType_t)5);
 
     }
@@ -817,16 +835,18 @@ void AlienShootingTask(){
                 
                     if (aliens_1[c1][randomNumber].alive && aliens_1[c1][randomNumber].active){
                         if(xSemaphoreTake(alienMissilesStruct[randomNumber].lock,portMAX_DELAY)==pdTRUE){
+                            if (alienMissilesStruct[randomNumber].missileActive==false){
                             alienMissilesStruct[randomNumber].missileActive=true;
                             alienMissilesStruct[randomNumber].missilePosX=aliens_1[c1][randomNumber].posX;
                             alienMissilesStruct[randomNumber].missilePosY=aliens_1[c1][randomNumber].posY;
+                            }
                             xSemaphoreGive(alienMissilesStruct[randomNumber].lock);
                         }
                     }
                 xSemaphoreGive(aliens_1[c1][randomNumber].lock);    
                 }
             } 
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            vTaskDelay(pdMS_TO_TICKS(100));
     }     
 }
 
@@ -838,13 +858,13 @@ void AlienMissiletrackingTask(){
                 if(alienMissilesStruct[c1].missileActive){
                     alienMissilesStruct[c1].missilePosY++;
                     if (alienMissilesStruct[c1].missilePosY>500){
-                        alienMissilesStruct[c1].missileActive==false;
+                        alienMissilesStruct[c1].missileActive=false;
                     }
                 }
                 xSemaphoreGive(alienMissilesStruct[c1].lock);
             }
         }
-        vTaskDelay((TickType_t)20);
+        vTaskDelay((TickType_t)10);
     }
 }
 
