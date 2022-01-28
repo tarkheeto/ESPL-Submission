@@ -234,6 +234,7 @@ static int vCheckStateInput(void)
             }
             return -1;
         }
+
         xSemaphoreGive(buttons.lock);
     }
 
@@ -700,6 +701,10 @@ xSemaphoreGive(spaceShipStruct.lock);
                 if (spaceShipStruct.attackState){
                     spaceShipStruct.spaceShipMissileY-=10;
                     if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
+                }
+                if(spaceShipStruct.health<=0){
+                    spaceShipStruct.health=3;
+                    xQueueSend(StateQueue, &dead_state_signal, 0);
                 }
                 xSemaphoreGive(spaceShipStruct.lock);
                 }
