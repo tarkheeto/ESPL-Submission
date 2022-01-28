@@ -42,6 +42,7 @@
 
 #define STATE_DEBOUNCE_DELAY 300
 SemaphoreHandle_t horizontalAlienMotion=NULL;
+TaskHandle_t alienDescentTaskHandle=NULL;
 TaskHandle_t AlienMissiletrackingTaskHandle=NULL;
 typedef struct score_t{int score;
 int killscore;
@@ -122,7 +123,7 @@ static StackType_t uxTimerTaskStack[ configTIMER_TASK_STACK_DEPTH ];
 }
 typedef struct alien1_t{
     int posX;
-    int posY;
+    double posY;
     bool alive;
     bool active;
     SemaphoreHandle_t lock;
@@ -311,8 +312,14 @@ initial_state:
                     if (AlienMissiletrackingTaskHandle){
                         vTaskSuspend(AlienMissiletrackingTaskHandle);
                     }
+                    if (alienDescentTaskHandle){
+                        vTaskSuspend(alienDescentTaskHandle);
+                    }
                     if(initialStateHandle){
                         vTaskResume(initialStateHandle);
+                    }
+                    if(AlienShootingTaskHandle){
+                        vTaskSuspend(alienShootingTaskHandle);
                     }
                     break;
                 case ACTIVE_STATE:
@@ -334,6 +341,12 @@ initial_state:
                     if(initialStateHandle){
                         vTaskSuspend(initialStateHandle);
                     }
+                    if (alienDescentTaskHandle){
+                        vTaskResume(alienDescentTaskHandle);
+                    }
+                    if(AlienShootingTaskHandle){
+                        vTaskResume(alienShootingTaskHandle);
+                    }
                     break;
                 case PAUSE_STATE:
                     if (DrawingTask_Handle) {
@@ -354,6 +367,12 @@ initial_state:
                     if(initialStateHandle){
                         vTaskSuspend(initialStateHandle);
                     }
+                    if (alienDescentTaskHandle){
+                        vTaskSuspend(alienDescentTaskHandle);
+                    }
+                    if(AlienShootingTaskHandle){
+                        vTaskSuspend(alienShootingTaskHandle);
+                    }
                     break;
                 case DEAD_STATE:
                     if(PositionIncrementationTask_Handle){
@@ -373,6 +392,12 @@ initial_state:
                     }
                     if(initialStateHandle){
                         vTaskSuspend(initialStateHandle);
+                    }
+                    if (alienDescentTaskHandle){
+                        vTaskSuspend(alienDescentTaskHandle);
+                    }
+                    if(AlienShootingTaskHandle){
+                        vTaskSuspend(alienShootingTaskHandle);
                     }
                     break;
                 default:
@@ -1114,6 +1139,27 @@ void AliensMovingTwoTask(){
         vTaskDelay((TickType_t)40);
     }       
 }
+void vAlienDescentTask(){
+    while(1){
+        if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){ 
+            for (int c1 =0;c1<5;c1++){
+                    for(int c2=0;c2<8;c2++){
+                         if(xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                            aliens_1[c1][c2].posY+= 0.05+(0.05* score.level);
+                            if(aliens_1[c1][c2].posY>=400){
+                                xQueueSend(StateQueue, &dead_state_signal, 0);
+                            }     
+                            xSemaphoreGive(aliens_1[c1][c2].lock);
+                         }
+                         
+                    }
+
+                }
+        xSemaphoreGive(score.lock);
+        }
+        vTaskDelay(40);
+    }
+}
 void LevelIncreasingTask(){
     while(1){
         //Check if we reached a multiple of 50 so that we could re draw the aliens and later on change their speeds accordingly
@@ -1444,8 +1490,10 @@ int main(int argc, char *argv[])
                 mainGENERIC_PRIORITY, &AlienMissiletrackingTaskHandle);
     xTaskCreate(vDeathState,"death state task",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &deathStateTaskHandle);
-    xTaskCreate(vInitialState,"death state task",mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &initialStateHandle);                
+    xTaskCreate(vInitialState,"initial start screen state task",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &initialStateHandle);
+    xTaskCreate(vAlienDescentTask,"task that manages the descent of the aliens",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &alienDescentTaskHandle);                    
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
