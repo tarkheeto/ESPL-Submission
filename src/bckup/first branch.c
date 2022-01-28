@@ -124,7 +124,7 @@ static TaskHandle_t RightCircleHandle = NULL;
 static TaskHandle_t DrawingTask_Handle = NULL;
 static TaskHandle_t PositionIncrementationTask_Handle = NULL;
 static TaskHandle_t BufferSwap = NULL;
-static TaskHandle_t Exercise3 = NULL;
+static TaskHandle_t PauseTaskHandle = NULL;
 StaticTask_t LeftCircleBuffer;
 StackType_t LeftCircleStack[ STACK_SIZE ];
 
@@ -219,8 +219,8 @@ initial_state:
         if (state_changed) {
             switch (current_state) {
                 case STATE_ONE:
-                    if (Exercise3) {
-                        vTaskSuspend(Exercise3);
+                    if (PauseTaskHandle) {
+                        vTaskSuspend(PauseTaskHandle);
                     }
                     if (PositionIncrementationTask_Handle) {
                         vTaskResume(PositionIncrementationTask_Handle);
@@ -236,8 +236,8 @@ initial_state:
                     if (PositionIncrementationTask_Handle) {
                         vTaskSuspend(PositionIncrementationTask_Handle);
                     }
-                    if (Exercise3) {
-                        vTaskResume(Exercise3);
+                    if (PauseTaskHandle) {
+                        vTaskResume(PauseTaskHandle);
                     }
                     break;
                 default:
@@ -530,7 +530,7 @@ void vLeftCircle(void *pvParameters){
     //xLastWakeTime = xTaskGetTickCount();
     while(1){
         xLastWakeTime = xTaskGetTickCount();
-        xTaskNotify(Exercise3, toggleLeftCircle, eSetBits);   //Tell the drawing task to toggle the right circle
+        xTaskNotify(PauseTaskHandle, toggleLeftCircle, eSetBits);   //Tell the drawing task to toggle the right circle
         vLeftCircleDebug++;
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
@@ -542,14 +542,14 @@ const TickType_t xFrequency = pdMS_TO_TICKS(250);
     while(1){
 
          xLastWakeTime = xTaskGetTickCount();
-        xTaskNotify(Exercise3, toggleRightCircle, eSetBits);   //Tell the drawing task to toggle the right circle
+        xTaskNotify(PauseTaskHandle, toggleRightCircle, eSetBits);   //Tell the drawing task to toggle the right circle
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
         //printf("toggled right circle!\n");
     }
 }
 int debugVar = 0;
 int debugVarrunningcheck=0;
-void vExercise3(void *pvParameters){
+void vPauseState(void *pvParameters){
     uint32_t NotificationBuffer;
     bool RightCircleFlag = false;
     bool LeftCircleFlag = false;
@@ -655,8 +655,8 @@ int main(int argc, char *argv[])
                 mainGENERIC_PRIORITY, &PositionIncrementationTask_Handle) != pdPASS) {
     goto err_demotask;
     }
-    if (xTaskCreate(vExercise3, "Exercise 3 main task", mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &Exercise3) != pdPASS) {
+    if (xTaskCreate(vPauseState, "Exercise 3 main task", mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &PauseTaskHandle) != pdPASS) {
     goto err_demotask;
     }
     LeftCircleHandle= xTaskCreateStatic(vLeftCircle, "Left Circle", STACK_SIZE, NULL,

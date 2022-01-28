@@ -27,13 +27,17 @@
 
 #define STATE_ONE 0
 #define STATE_TWO 1
+#define STATE_THREE 2
 
 #define NEXT_TASK 0
+#define PAUSE_STATE 6 
+#define DEAD_STATE 7
+#define ACTIVE_STATE 5
 #define PREV_TASK 1
 
 
 
-#define STARTING_STATE STATE_ONE
+#define STARTING_STATE ACTIVE_STATE
 
 #define STATE_DEBOUNCE_DELAY 300
 SemaphoreHandle_t horizontalAlienMotion=NULL;
@@ -53,6 +57,7 @@ alienMissiles_t alienMissilesStruct[8];
 TaskHandle_t AlienShootingTaskHandle=NULL;
 TaskHandle_t aliensMovingOneTaskHandle=NULL;
 TaskHandle_t aliensMovingTwoTaskHandle=NULL;
+TaskHandle_t deathStateTaskHandle = NULL;
 SemaphoreHandle_t aliensCreate=NULL;
 SemaphoreHandle_t shelterCreate = NULL;
 TaskHandle_t alienCreationTaskHandle=NULL;
@@ -150,6 +155,9 @@ static SemaphoreHandle_t RightButtonSignal=NULL;
 static SemaphoreHandle_t SpaceShipMissileSem=NULL;
 static TaskHandle_t LevelIncreasingTaskHandle=NULL;
 const unsigned char next_state_signal = NEXT_TASK;
+const unsigned char active_state_signal = ACTIVE_STATE;
+const unsigned char pause_state_signal = PAUSE_STATE;
+const unsigned char dead_state_signal = DEAD_STATE;
 const unsigned char prev_state_signal = PREV_TASK;
 static TaskHandle_t StateMachine = NULL;
 static TaskHandle_t shelterCreatingTaskHandle = NULL;
@@ -175,7 +183,7 @@ static TaskHandle_t RightCircleHandle = NULL;
 static TaskHandle_t DrawingTask_Handle = NULL;
 static TaskHandle_t PositionIncrementationTask_Handle = NULL;
 static TaskHandle_t BufferSwap = NULL;
-static TaskHandle_t Exercise3 = NULL;
+static TaskHandle_t PauseTaskHandle = NULL;
 StaticTask_t LeftCircleBuffer;
 StackType_t LeftCircleStack[ STACK_SIZE ];
 
@@ -196,11 +204,32 @@ static buttons_buffer_t buttons = { 0 };
 static int vCheckStateInput(void)
 {
     if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
-        if (buttons.buttons[KEYCODE(E)]) {
-            buttons.buttons[KEYCODE(E)] = 0;
+
+        
+        if (buttons.buttons[KEYCODE(P)]) {
+            buttons.buttons[KEYCODE(P)] = 0;
             if (StateQueue) {
                 xSemaphoreGive(buttons.lock);
-                xQueueSend(StateQueue, &next_state_signal, 0);
+                xQueueSend(StateQueue, &pause_state_signal, 0);
+                return 0;
+            }
+            return -1;
+        }
+        if (buttons.buttons[KEYCODE(R)]) {
+            buttons.buttons[KEYCODE(R)] = 0;
+            if (StateQueue) {
+                xSemaphoreGive(buttons.lock);
+                xQueueSend(StateQueue, &active_state_signal, 0);
+                return 0;
+            }
+            return -1;
+        }
+            
+        if (buttons.buttons[KEYCODE(X)]) {
+            buttons.buttons[KEYCODE(X)] = 0;
+            if (StateQueue) {
+                xSemaphoreGive(buttons.lock);
+                xQueueSend(StateQueue, &dead_state_signal, 0);
                 return 0;
             }
             return -1;
@@ -214,21 +243,14 @@ static int vCheckStateInput(void)
 void changeState(volatile unsigned char *state, unsigned char forwards)
 {
     switch (forwards) {
-        case NEXT_TASK:
-            if (*state == STATE_COUNT - 1) {
-                *state = 0;
-            }
-            else {
-                (*state)++;
-            }
+        case ACTIVE_STATE:
+                *state= ACTIVE_STATE;
+            break;    
+        case PAUSE_STATE:
+                *state = PAUSE_STATE;
             break;
-        case PREV_TASK:
-            if (*state == 0) {
-                *state = STATE_COUNT - 1;
-            }
-            else {
-                (*state)--;
-            }
+        case DEAD_STATE:
+                *state = DEAD_STATE;
             break;
         default:
             break;
@@ -269,9 +291,9 @@ initial_state:
         // Handle current state
         if (state_changed) {
             switch (current_state) {
-                case STATE_ONE:
-                    if (Exercise3) {
-                        vTaskSuspend(Exercise3);
+                case ACTIVE_STATE:
+                    if (PauseTaskHandle) {
+                        vTaskSuspend(PauseTaskHandle);
                     }
                     if (PositionIncrementationTask_Handle) {
                         vTaskResume(PositionIncrementationTask_Handle);
@@ -279,18 +301,46 @@ initial_state:
                     if (DrawingTask_Handle) {
                         vTaskResume(DrawingTask_Handle);
                     }
+                    if (AlienMissiletrackingTaskHandle){
+                        vTaskResume(AlienMissiletrackingTaskHandle);
+                    }
+                    if (deathStateTaskHandle){
+                        vTaskSuspend(deathStateTaskHandle);
+                    }
                     break;
-                case STATE_TWO:
+                case PAUSE_STATE:
                     if (DrawingTask_Handle) {
                         vTaskSuspend(DrawingTask_Handle);
                     }
                     if (PositionIncrementationTask_Handle) {
                         vTaskSuspend(PositionIncrementationTask_Handle);
                     }
-                    if (Exercise3) {
-                        vTaskResume(Exercise3);
+                    if (PauseTaskHandle) {
+                        vTaskResume(PauseTaskHandle);
+                    }
+                    if (AlienMissiletrackingTaskHandle){
+                        vTaskSuspend(AlienMissiletrackingTaskHandle);
+                    }
+                    if (deathStateTaskHandle){
+                        vTaskSuspend(deathStateTaskHandle);
                     }
                     break;
+                case DEAD_STATE:
+                    if(PositionIncrementationTask_Handle){
+                        vTaskSuspend(PositionIncrementationTask_Handle);
+                    } 
+                    if(DrawingTask_Handle){
+                        vTaskSuspend(DrawingTask_Handle);
+                    } 
+                    if (deathStateTaskHandle){
+                        vTaskResume(deathStateTaskHandle);
+                    }
+                    if (PauseTaskHandle) {
+                        vTaskSuspend(PauseTaskHandle);
+                    }
+                    if (AlienMissiletrackingTaskHandle){
+                        vTaskSuspend(AlienMissiletrackingTaskHandle);
+                    }
                 default:
                     break;
             }
@@ -1093,7 +1143,7 @@ void vLeftCircle(void *pvParameters){
     //xLastWakeTime = xTaskGetTickCount();
     while(1){
         xLastWakeTime = xTaskGetTickCount();
-        xTaskNotify(Exercise3, toggleLeftCircle, eSetBits);   //Tell the drawing task to toggle the right circle
+        xTaskNotify(PauseTaskHandle, toggleLeftCircle, eSetBits);   //Tell the drawing task to toggle the right circle
         vLeftCircleDebug++;
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
@@ -1105,14 +1155,14 @@ const TickType_t xFrequency = pdMS_TO_TICKS(250);
     while(1){
 
          xLastWakeTime = xTaskGetTickCount();
-        xTaskNotify(Exercise3, toggleRightCircle, eSetBits);   //Tell the drawing task to toggle the right circle
+        xTaskNotify(PauseTaskHandle, toggleRightCircle, eSetBits);   //Tell the drawing task to toggle the right circle
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
         //printf("toggled right circle!\n");
     }
 }
 
 int debugVarrunningcheck=0;
-void vExercise3(void *pvParameters){
+void vPauseState(void *pvParameters){
     uint32_t NotificationBuffer;
     bool RightCircleFlag = false;
     bool LeftCircleFlag = false;
@@ -1170,6 +1220,26 @@ void vExercise3(void *pvParameters){
 
     vCheckStateInput();
     vTaskDelay(20);
+    }
+}
+void vDeathState(){
+
+    while(1){
+            tumEventFetchEvents(FETCH_EVENT_BLOCK |
+                                FETCH_EVENT_NO_GL_CHECK);
+            xGetButtonInput(); // Update global input
+            if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
+                pdTRUE) {            
+                xSemaphoreTake(ScreenLock, portMAX_DELAY);
+                tumDrawSetGlobalXOffset(0);
+                tumDrawSetGlobalYOffset(0);
+                tumDrawClear(Pink); // Clear screen
+                vDrawFPS();                    
+                xSemaphoreGive(ScreenLock);
+                xSemaphoreGive(DrawSignal);
+                }
+        vCheckStateInput();        
+        vTaskDelay(20);
     }
 }
 int main(int argc, char *argv[])
@@ -1235,8 +1305,8 @@ int main(int argc, char *argv[])
                 mainGENERIC_PRIORITY, &PositionIncrementationTask_Handle) != pdPASS) {
     goto err_demotask;
     }
-    if (xTaskCreate(vExercise3, "Exercise 3 main task", mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &Exercise3) != pdPASS) {
+    if (xTaskCreate(vPauseState, "Exercise 3 main task", mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &PauseTaskHandle) != pdPASS) {
     goto err_demotask;
     }
     LeftCircleHandle= xTaskCreateStatic(vLeftCircle, "Left Circle", STACK_SIZE, NULL,
@@ -1271,7 +1341,9 @@ int main(int argc, char *argv[])
     xTaskCreate(AlienShootingTask,"task that moves aliens 1",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &AlienShootingTaskHandle); 
     xTaskCreate(AlienMissiletrackingTask,"task that tracks alien missiles",mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &AlienMissiletrackingTaskHandle);            
+                mainGENERIC_PRIORITY, &AlienMissiletrackingTaskHandle);
+    xTaskCreate(vDeathState,"death state task",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &deathStateTaskHandle);        
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
