@@ -133,7 +133,8 @@ typedef struct spaceShipStruct_t
     int spaceShipMissileX;
     int spaceShipMissileY;
     int mothershipXPosition;
-    int mothershipYPosition;  
+    int mothershipYPosition; 
+    int health; 
     SemaphoreHandle_t lock;
 }spaceShipStruct_t;
 spaceShipStruct_t spaceShipStruct;
@@ -461,6 +462,10 @@ void Drawing_Task(void *pvParameters)
         image_handle_t alien5_image =
         tumDrawLoadImage("../resources/images/fifthalientype.png");
 
+        //Mothership Health
+        image_handle_t heart_image=
+        tumDrawLoadImage("../resources/images/heart.png");
+
         static char strdt[10] = { 0 };
                
     while (1) {
@@ -494,13 +499,35 @@ void Drawing_Task(void *pvParameters)
                     }
                 }   
 
-                //Drawing Missiles fired by our mother ship and the ship itself
+                //Drawing Missiles fired by our mother ship and the ship itself and hearts
                 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){	
                     tumDrawLoadedImage(ball_spritesheet_image,spaceShipStruct.mothershipXPosition,
                                         spaceShipStruct.mothershipYPosition);                  
                         if (spaceShipStruct.attackState){
                             tumDrawFilledBox(spaceShipStruct.spaceShipMissileX+10,spaceShipStruct.spaceShipMissileY,3,5,Red);
                         }
+                    
+                    //Drawing the hearts
+                    tumDrawSetLoadedImageScale(heart_image,0.03);
+                    switch(spaceShipStruct.health){
+                        case 3:
+                            tumDrawLoadedImage(heart_image,10,450);
+                            tumDrawLoadedImage(heart_image,30,450);
+                            tumDrawLoadedImage(heart_image,50,450);
+                            break;
+                        case 2:
+                            tumDrawLoadedImage(heart_image,10,450);
+                            tumDrawLoadedImage(heart_image,30,450);
+
+                            break;
+                        case 1: 
+                            tumDrawLoadedImage(heart_image,10,450);
+                            break;
+                        case 0:
+                            break;
+                    }
+
+
                     xSemaphoreGive(spaceShipStruct.lock);
                 }
 
@@ -554,6 +581,8 @@ void Drawing_Task(void *pvParameters)
                     }
                 }
 
+                
+
                 vDrawFPS();
                 xSemaphoreGive(ScreenLock);
             }
@@ -579,8 +608,10 @@ void vSpaceshipShoot(){
 
 
 void PositionIncrementation_Task(void *pvParameters){
+//Spaceship initialisation
 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
-spaceShipStruct.attackState=false;    
+spaceShipStruct.attackState=false;
+spaceShipStruct.health=3;    
 spaceShipStruct.mothershipXPosition=310;
 spaceShipStruct.mothershipYPosition=400;   
 xSemaphoreGive(spaceShipStruct.lock);
@@ -731,7 +762,22 @@ void collisionDetectionTask(){
                 }
             }        
 
-        vTaskDelay((TickType_t)5);
+        // Collision detection between the alien Missiles and the mothership 
+        if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+            for(int counter=0; counter<8;counter++){
+                if(xSemaphoreTake(alienMissilesStruct[counter].lock,portMAX_DELAY)==pdTRUE){
+                       if (abs(alienMissilesStruct[counter].missilePosY- 400)<8 && abs(alienMissilesStruct[counter].missilePosX -spaceShipStruct.mothershipXPosition)<16 && alienMissilesStruct[counter].missileActive) {                           
+                            spaceShipStruct.health--;
+                            alienMissilesStruct[counter].missileActive=false;               
+
+                        } 
+                   xSemaphoreGive(alienMissilesStruct[counter].lock); 
+                }
+            }
+            xSemaphoreGive(spaceShipStruct.lock);    
+        }
+
+        vTaskDelay((TickType_t)10);
 
     }
 }
@@ -846,7 +892,7 @@ void AlienShootingTask(){
                 xSemaphoreGive(aliens_1[c1][randomNumber].lock);    
                 }
             } 
-            vTaskDelay(pdMS_TO_TICKS(100));
+            vTaskDelay(pdMS_TO_TICKS(3000));
     }     
 }
 
@@ -861,10 +907,10 @@ void AlienMissiletrackingTask(){
                         alienMissilesStruct[c1].missileActive=false;
                     }
                 }
-                xSemaphoreGive(alienMissilesStruct[c1].lock);
+                xSemaphoreGive(alienMissilesStruct[c1].lock); 
             }
         }
-        vTaskDelay((TickType_t)10);
+        vTaskDelay((TickType_t)20);
     }
 }
 
