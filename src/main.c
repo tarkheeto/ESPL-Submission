@@ -35,6 +35,7 @@
 #define DEAD_STATE 7
 #define ACTIVE_STATE 5
 #define PREV_TASK 1
+#define INT_GODMODE_STATE 1
 
 
 
@@ -44,6 +45,7 @@
 SemaphoreHandle_t horizontalAlienMotion=NULL;
 TaskHandle_t alienDescentTaskHandle=NULL;
 TaskHandle_t AlienMissiletrackingTaskHandle=NULL;
+TaskHandle_t intGodModeStateHandle=NULL;
 typedef struct score_t{int score;
 int killscore;
 int highscore;
@@ -134,6 +136,7 @@ typedef struct shelterblock_t{
         int posY;
         bool active;
         bool alive;
+        bool godmode;
         SemaphoreHandle_t lock;
 }shelterblock_t;
 shelterblock_t shelterBlocks[20];
@@ -159,6 +162,7 @@ static SemaphoreHandle_t RightButtonSignal=NULL;
 static SemaphoreHandle_t SpaceShipMissileSem=NULL;
 static TaskHandle_t LevelIncreasingTaskHandle=NULL;
 const unsigned char next_state_signal = NEXT_TASK;
+const unsigned char int_godmode_state_signal = INT_GODMODE_STATE;
 const unsigned char active_state_signal = ACTIVE_STATE;
 const unsigned char pause_state_signal = PAUSE_STATE;
 const unsigned char dead_state_signal = DEAD_STATE;
@@ -228,7 +232,16 @@ static int vCheckStateInput(void)
             }
             return -1;
         }
-            
+
+        if (buttons.buttons[KEYCODE(G)]) {
+            buttons.buttons[KEYCODE(G)] = 0;
+            if (StateQueue) {
+                xSemaphoreGive(buttons.lock);
+                xQueueSend(StateQueue, &int_godmode_state_signal, 0);
+                return 0;
+            }
+            return -1;
+        }            
         if (buttons.buttons[KEYCODE(X)]) {
             buttons.buttons[KEYCODE(X)] = 0;
             if (StateQueue) {
@@ -256,6 +269,9 @@ void changeState(volatile unsigned char *state, unsigned char forwards)
             break;
         case DEAD_STATE:
                 *state = DEAD_STATE;
+            break;
+        case INT_GODMODE_STATE:
+                *state = INT_GODMODE_STATE;
             break;
         default:
             break;
@@ -318,7 +334,10 @@ initial_state:
                     if(initialStateHandle){
                         vTaskResume(initialStateHandle);
                     }
-
+                    break;
+                    if(intGodModeStateHandle){
+                        vTaskSuspend(intGodModeStateHandle);
+                    }
                     break;
                 case ACTIVE_STATE:
                     if (PauseTaskHandle) {
@@ -342,7 +361,9 @@ initial_state:
                     if (alienDescentTaskHandle){
                         vTaskResume(alienDescentTaskHandle);
                     }
-
+                    if(intGodModeStateHandle){
+                        vTaskSuspend(intGodModeStateHandle);
+                    }
                     break;
                 case PAUSE_STATE:
                     if (DrawingTask_Handle) {
@@ -391,6 +412,32 @@ initial_state:
                         vTaskSuspend(alienDescentTaskHandle);
                     }
 
+                    break;
+                case INT_GODMODE_STATE:
+                    if(PositionIncrementationTask_Handle){
+                        vTaskSuspend(PositionIncrementationTask_Handle);
+                    } 
+                    if(DrawingTask_Handle){
+                        vTaskSuspend(DrawingTask_Handle);
+                    } 
+                    if (deathStateTaskHandle){
+                        vTaskSuspend(deathStateTaskHandle);
+                    }
+                    if (PauseTaskHandle) {
+                        vTaskSuspend(PauseTaskHandle);
+                    }
+                    if (AlienMissiletrackingTaskHandle){
+                        vTaskSuspend(AlienMissiletrackingTaskHandle);
+                    }
+                    if (alienDescentTaskHandle){
+                        vTaskSuspend(alienDescentTaskHandle);
+                    }
+                    if(initialStateHandle){
+                        vTaskSuspend(initialStateHandle);
+                    }
+                    if(intGodModeStateHandle){
+                        vTaskResume(intGodModeStateHandle);
+                    }
                     break;
                 default:
                     break;
@@ -1336,6 +1383,39 @@ void vInitialState(){
         vTaskDelay(20);  
     }
 }
+
+void vIntGodModeStateTask(){
+
+    static char strdttt[20] = { 0 };
+
+    while(1){
+        tumEventFetchEvents(FETCH_EVENT_BLOCK |
+                                    FETCH_EVENT_NO_GL_CHECK);
+        xGetButtonInput(); // Update global input
+                    if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
+                pdTRUE) {            
+                xSemaphoreTake(ScreenLock, portMAX_DELAY);
+                tumDrawSetGlobalXOffset(0);
+                tumDrawSetGlobalYOffset(0);
+                tumDrawClear(Pink); // Clear screen
+                //showing the FPS in this state just felt weird 
+                //vDrawFPS();                    
+
+                //SCORE DRAWING
+
+                    sprintf(strdttt,"Gode MODE");
+                    tumDrawText(strdttt,240,
+                              400,
+                              Yellow);
+
+
+                xSemaphoreGive(ScreenLock);
+                xSemaphoreGive(DrawSignal);
+                }
+        vCheckStateInput();
+        vTaskDelay(20);
+    }
+}
 void vDeathState(){
         image_handle_t gameover_image =
         tumDrawLoadImage("../resources/images/gameover.png");        
@@ -1485,7 +1565,9 @@ int main(int argc, char *argv[])
     xTaskCreate(vInitialState,"initial start screen state task",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &initialStateHandle);
     xTaskCreate(vAlienDescentTask,"task that manages the descent of the aliens",mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &alienDescentTaskHandle);                    
+                mainGENERIC_PRIORITY, &alienDescentTaskHandle);   
+    xTaskCreate(vIntGodModeStateTask,"task that manages the user settings of god mode",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &intGodModeStateHandle);                  
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
