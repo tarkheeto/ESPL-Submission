@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "tum_ball.h": "c"
+        "tum_ball.h": "c",
+        "freertos.h": "c"
     }
 }

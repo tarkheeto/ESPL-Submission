@@ -35,7 +35,7 @@
 #define DEAD_STATE 7
 #define ACTIVE_STATE 5
 #define PREV_TASK 1
-#define INT_GODMODE_STATE 1
+#define INT_GODMODE_STATE 20
 
 
 
@@ -334,9 +334,11 @@ initial_state:
                     if(initialStateHandle){
                         vTaskResume(initialStateHandle);
                     }
-                    break;
                     if(intGodModeStateHandle){
                         vTaskSuspend(intGodModeStateHandle);
+                    }
+                    if (PositionIncrementationTask_Handle){
+                        vTaskSuspend(PositionIncrementationTask_Handle);
                     }
                     break;
                 case ACTIVE_STATE:
@@ -344,6 +346,9 @@ initial_state:
                         vTaskSuspend(PauseTaskHandle);
                     }
                     if (PositionIncrementationTask_Handle) {
+                        vTaskResume(PositionIncrementationTask_Handle);
+                    }
+                    if (PositionIncrementationTask_Handle){
                         vTaskResume(PositionIncrementationTask_Handle);
                     }
                     if (DrawingTask_Handle) {
@@ -387,7 +392,12 @@ initial_state:
                     if (alienDescentTaskHandle){
                         vTaskSuspend(alienDescentTaskHandle);
                     }
-
+                    if(intGodModeStateHandle){
+                        vTaskSuspend(intGodModeStateHandle);
+                    }
+                    if (PositionIncrementationTask_Handle){
+                        vTaskSuspend(PositionIncrementationTask_Handle);
+                    }
                     break;
                 case DEAD_STATE:
                     if(PositionIncrementationTask_Handle){
@@ -411,15 +421,19 @@ initial_state:
                     if (alienDescentTaskHandle){
                         vTaskSuspend(alienDescentTaskHandle);
                     }
-
+                    if(intGodModeStateHandle){
+                        vTaskSuspend(intGodModeStateHandle);
+                    }
+                    if (PositionIncrementationTask_Handle){
+                        vTaskSuspend(PositionIncrementationTask_Handle);
+                    }
                     break;
                 case INT_GODMODE_STATE:
                     if(PositionIncrementationTask_Handle){
                         vTaskSuspend(PositionIncrementationTask_Handle);
                     } 
                     if(DrawingTask_Handle){
-                        vTaskSuspend(DrawingTask_Handle);
-                    } 
+                        vTaskSuspend(DrawingTask_Handle);} 
                     if (deathStateTaskHandle){
                         vTaskSuspend(deathStateTaskHandle);
                     }
@@ -438,8 +452,9 @@ initial_state:
                     if(intGodModeStateHandle){
                         vTaskResume(intGodModeStateHandle);
                     }
-                    break;
-                default:
+                    if (PositionIncrementationTask_Handle){
+                        vTaskSuspend(PositionIncrementationTask_Handle);
+                    }
                     break;
             }
             state_changed = 0;
@@ -947,6 +962,16 @@ void collisionDetectionTask(){
             xSemaphoreGive(spaceShipStruct.lock);    
         }
 
+        // ALIEN final descent
+        for(int c1 =0 ; c1 < 5 ; c1++){
+            for(int c2 = 0; c2 <8 ;c2++){
+                if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                     if(aliens_1[c1][c2].posY>=400){
+                      xQueueSend(StateQueue, &dead_state_signal, 0);}
+                xSemaphoreGive(aliens_1[c1][c2].lock);
+                }
+            }
+        }    
         vTaskDelay((TickType_t)1);
 
     }
@@ -1185,9 +1210,7 @@ void vAlienDescentTask(){
                     for(int c2=0;c2<8;c2++){
                          if(xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
                             aliens_1[c1][c2].posY+= 0.05+(0.05* score.level);
-                            if(aliens_1[c1][c2].posY>=400){
-                                xQueueSend(StateQueue, &dead_state_signal, 0);
-                            }     
+   
                             xSemaphoreGive(aliens_1[c1][c2].lock);
                          }
                          
@@ -1385,6 +1408,12 @@ void vInitialState(){
 }
 
 void vIntGodModeStateTask(){
+    image_handle_t arrow_up_image =
+    tumDrawLoadImage("../resources/images/arrow_up.png");        
+    image_handle_t arrow_down_image =
+    tumDrawLoadImage("../resources/images/arrow_down.png");  
+    tumDrawSetLoadedImageScale(arrow_up_image,0.05);
+    tumDrawSetLoadedImageScale(arrow_down_image,0.05);
 
     static char strdttt[20] = { 0 };
 
@@ -1397,16 +1426,40 @@ void vIntGodModeStateTask(){
                 xSemaphoreTake(ScreenLock, portMAX_DELAY);
                 tumDrawSetGlobalXOffset(0);
                 tumDrawSetGlobalYOffset(0);
-                tumDrawClear(Pink); // Clear screen
-                //showing the FPS in this state just felt weird 
-                //vDrawFPS();                    
+                tumDrawClear(Black); // Clear screen
+                sprintf(strdttt, "Axis 1: %5d | Axis 2: %5d", tumEventGetMouseX(),
+                tumEventGetMouseY());
+                tumDrawText(strdttt,10,10,Yellow);
+                if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){ 
+                    sprintf(strdttt, "Intended Score: %d",score.killscore);
+                    tumDrawText(strdttt,130,365,Yellow);
+                    sprintf(strdttt, "Intended level: %d",score.level);
+                    tumDrawText(strdttt,450,365,Yellow);
+                    xSemaphoreGive(score.lock);
+                }
+                
+                tumDrawLoadedImage(arrow_up_image,90,350);
+                tumDrawLoadedImage(arrow_down_image,90,380);
+                tumDrawLoadedImage(arrow_up_image,400,350);
+                tumDrawLoadedImage(arrow_down_image,400,380);
 
-                //SCORE DRAWING
-
-                    sprintf(strdttt,"Gode MODE");
-                    tumDrawText(strdttt,240,
-                              400,
-                              Yellow);
+                if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){    
+                    if(tumEventGetMouseLeft() && (abs(tumEventGetMouseX()-100)<=15) && (abs(tumEventGetMouseY()-360)<=15) ){
+                        score.killscore+=100;
+                    }
+                    if(tumEventGetMouseLeft() && (abs(tumEventGetMouseX()-100)<=15) && (abs(tumEventGetMouseY()-390)<=15) ){
+                        score.killscore-=100;
+                    }
+                    if(tumEventGetMouseLeft() && (abs(tumEventGetMouseX()-410)<=15) && (abs(tumEventGetMouseY()-360)<=15) ){
+                        score.level++;
+                    }
+                    if(tumEventGetMouseLeft() && (abs(tumEventGetMouseX()-410)<=15) && (abs(tumEventGetMouseY()-390)<=15) ){
+                        score.level--;
+                    }
+                    xSemaphoreGive(score.lock);
+                }
+                sprintf(strdttt,"Gode MODE");
+                tumDrawText(strdttt,240,400,Yellow);
 
 
                 xSemaphoreGive(ScreenLock);
@@ -1470,12 +1523,10 @@ int main(int argc, char *argv[])
         PRINT_ERROR("Failed to initialize drawing");
         goto err_init_drawing;
     }
-
     if (tumEventInit()) {
         PRINT_ERROR("Failed to initialize events");
         goto err_init_events;
     }
-
     if (tumSoundInit(bin_folder_path)) {
         PRINT_ERROR("Failed to initialize audio");
         goto err_init_audio;
@@ -1494,7 +1545,6 @@ int main(int argc, char *argv[])
                 aliens_1[c1][c2].lock = xSemaphoreCreateMutex();
         }
     }
-
     if (!buttons.lock) {
         PRINT_ERROR("Failed to create buttons lock");
         goto err_buttons_lock;
@@ -1544,16 +1594,12 @@ int main(int argc, char *argv[])
     }
     xTaskCreate(shelterCreatingTask,"task that creates a shelter",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &shelterCreatingTaskHandle);
-
     xTaskCreate(LevelIncreasingTask,"task that increases the level",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &LevelIncreasingTaskHandle);
-
     xTaskCreate(alienCreationTask,"task that creates aliens",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &alienCreationTaskHandle);   
-
     xTaskCreate(AliensMovingOneTask,"task that moves aliens 1",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &aliensMovingOneTaskHandle);  
-
     xTaskCreate(AliensMovingTwoTask,"task that moves aliens 1",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &aliensMovingTwoTaskHandle); 
     xTaskCreate(AlienShootingTask,"task that moves aliens 1",mainGENERIC_STACK_SIZE * 2, NULL,
