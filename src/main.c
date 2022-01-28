@@ -318,9 +318,7 @@ initial_state:
                     if(initialStateHandle){
                         vTaskResume(initialStateHandle);
                     }
-                    if(AlienShootingTaskHandle){
-                        vTaskSuspend(alienShootingTaskHandle);
-                    }
+
                     break;
                 case ACTIVE_STATE:
                     if (PauseTaskHandle) {
@@ -344,9 +342,7 @@ initial_state:
                     if (alienDescentTaskHandle){
                         vTaskResume(alienDescentTaskHandle);
                     }
-                    if(AlienShootingTaskHandle){
-                        vTaskResume(alienShootingTaskHandle);
-                    }
+
                     break;
                 case PAUSE_STATE:
                     if (DrawingTask_Handle) {
@@ -370,9 +366,7 @@ initial_state:
                     if (alienDescentTaskHandle){
                         vTaskSuspend(alienDescentTaskHandle);
                     }
-                    if(AlienShootingTaskHandle){
-                        vTaskSuspend(alienShootingTaskHandle);
-                    }
+
                     break;
                 case DEAD_STATE:
                     if(PositionIncrementationTask_Handle){
@@ -396,9 +390,7 @@ initial_state:
                     if (alienDescentTaskHandle){
                         vTaskSuspend(alienDescentTaskHandle);
                     }
-                    if(AlienShootingTaskHandle){
-                        vTaskSuspend(alienShootingTaskHandle);
-                    }
+
                     break;
                 default:
                     break;
