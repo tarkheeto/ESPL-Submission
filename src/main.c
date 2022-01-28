@@ -30,6 +30,7 @@
 #define STATE_THREE 2
 
 #define NEXT_TASK 0
+#define INITIAL_STATE 4
 #define PAUSE_STATE 6 
 #define DEAD_STATE 7
 #define ACTIVE_STATE 5
@@ -37,7 +38,7 @@
 
 
 
-#define STARTING_STATE ACTIVE_STATE
+#define STARTING_STATE INITIAL_STATE
 
 #define STATE_DEBOUNCE_DELAY 300
 SemaphoreHandle_t horizontalAlienMotion=NULL;
@@ -59,6 +60,7 @@ TaskHandle_t AlienShootingTaskHandle=NULL;
 TaskHandle_t aliensMovingOneTaskHandle=NULL;
 TaskHandle_t aliensMovingTwoTaskHandle=NULL;
 TaskHandle_t deathStateTaskHandle = NULL;
+TaskHandle_t initialStateHandle = NULL;
 SemaphoreHandle_t aliensCreate=NULL;
 SemaphoreHandle_t shelterCreate = NULL;
 TaskHandle_t alienCreationTaskHandle=NULL;
@@ -216,8 +218,8 @@ static int vCheckStateInput(void)
             }
             return -1;
         }
-        if (buttons.buttons[KEYCODE(R)]) {
-            buttons.buttons[KEYCODE(R)] = 0;
+        if (buttons.buttons[KEYCODE(S)]) {
+            buttons.buttons[KEYCODE(S)] = 0;
             if (StateQueue) {
                 xSemaphoreGive(buttons.lock);
                 xQueueSend(StateQueue, &active_state_signal, 0);
@@ -293,6 +295,26 @@ initial_state:
         // Handle current state
         if (state_changed) {
             switch (current_state) {
+                case INITIAL_STATE:
+                    if(PositionIncrementationTask_Handle){
+                        vTaskSuspend(PositionIncrementationTask_Handle);
+                    } 
+                    if(DrawingTask_Handle){
+                        vTaskSuspend(DrawingTask_Handle);
+                    } 
+                    if (deathStateTaskHandle){
+                        vTaskSuspend(deathStateTaskHandle);
+                    }
+                    if (PauseTaskHandle) {
+                        vTaskSuspend(PauseTaskHandle);
+                    }
+                    if (AlienMissiletrackingTaskHandle){
+                        vTaskSuspend(AlienMissiletrackingTaskHandle);
+                    }
+                    if(initialStateHandle){
+                        vTaskResume(initialStateHandle);
+                    }
+                    break;
                 case ACTIVE_STATE:
                     if (PauseTaskHandle) {
                         vTaskSuspend(PauseTaskHandle);
@@ -308,6 +330,9 @@ initial_state:
                     }
                     if (deathStateTaskHandle){
                         vTaskSuspend(deathStateTaskHandle);
+                    }
+                    if(initialStateHandle){
+                        vTaskSuspend(initialStateHandle);
                     }
                     break;
                 case PAUSE_STATE:
@@ -326,6 +351,9 @@ initial_state:
                     if (deathStateTaskHandle){
                         vTaskSuspend(deathStateTaskHandle);
                     }
+                    if(initialStateHandle){
+                        vTaskSuspend(initialStateHandle);
+                    }
                     break;
                 case DEAD_STATE:
                     if(PositionIncrementationTask_Handle){
@@ -343,6 +371,10 @@ initial_state:
                     if (AlienMissiletrackingTaskHandle){
                         vTaskSuspend(AlienMissiletrackingTaskHandle);
                     }
+                    if(initialStateHandle){
+                        vTaskSuspend(initialStateHandle);
+                    }
+                    break;
                 default:
                     break;
             }
@@ -1168,6 +1200,10 @@ const TickType_t xFrequency = pdMS_TO_TICKS(250);
 }
 
 int debugVarrunningcheck=0;
+
+
+
+
 void vPauseState(void *pvParameters){
     uint32_t NotificationBuffer;
     bool RightCircleFlag = false;
@@ -1228,6 +1264,40 @@ void vPauseState(void *pvParameters){
     vTaskDelay(20);
     }
 }
+void vInitialState(){
+        image_handle_t gamestart_image =
+        tumDrawLoadImage("../resources/images/gamestart.png");        
+        tumDrawSetLoadedImageScale(gamestart_image,0.5);
+        static char strdtt[20] = { 0 };
+    while(1){
+        tumEventFetchEvents(FETCH_EVENT_BLOCK |
+                                    FETCH_EVENT_NO_GL_CHECK);
+        xGetButtonInput(); // Update global input
+                    if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
+                pdTRUE) {            
+                xSemaphoreTake(ScreenLock, portMAX_DELAY);
+                tumDrawSetGlobalXOffset(0);
+                tumDrawSetGlobalYOffset(0);
+                tumDrawClear(Black); // Clear screen
+                tumDrawLoadedImage(gamestart_image,90,20);
+                //showing the FPS in this state just felt weird 
+                //vDrawFPS();                    
+
+                //SCORE DRAWING
+
+                    sprintf(strdtt,"PRESS S TO START");
+                    tumDrawText(strdtt,240,
+                              400,
+                              Yellow);
+
+
+                xSemaphoreGive(ScreenLock);
+                xSemaphoreGive(DrawSignal);
+                }
+        vCheckStateInput();
+        vTaskDelay(20);  
+    }
+}
 void vDeathState(){
         image_handle_t gameover_image =
         tumDrawLoadImage("../resources/images/gameover.png");        
@@ -1246,7 +1316,11 @@ void vDeathState(){
                 tumDrawLoadedImage(gameover_image,170,100);
                 //showing the FPS in this state just felt weird 
                 //vDrawFPS();                    
-
+                xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY);
+                aliensHorizontalMotionStruct.excessMotionToggle=false;
+                xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+                xSemaphoreGive(aliensCreate);
+                xSemaphoreGive(shelterCreate);
                 //SCORE DRAWING
                 if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
                     if (score.killscore>score.highscore){
@@ -1369,7 +1443,9 @@ int main(int argc, char *argv[])
     xTaskCreate(AlienMissiletrackingTask,"task that tracks alien missiles",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &AlienMissiletrackingTaskHandle);
     xTaskCreate(vDeathState,"death state task",mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &deathStateTaskHandle);        
+                mainGENERIC_PRIORITY, &deathStateTaskHandle);
+    xTaskCreate(vInitialState,"death state task",mainGENERIC_STACK_SIZE * 2, NULL,
+                mainGENERIC_PRIORITY, &initialStateHandle);                
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
