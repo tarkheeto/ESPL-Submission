@@ -801,11 +801,11 @@ xSemaphoreGive(spaceShipStruct.lock);
 
                     if (buttons.buttons[KEYCODE(RIGHT)]) {
                         if(spaceShipStruct.mothershipXPosition<=560){ 
-                         spaceShipStruct.mothershipXPosition+=10;
+                         spaceShipStruct.mothershipXPosition+=7;
                     }}
                     if (buttons.buttons[KEYCODE(LEFT)]) { 
                         if(spaceShipStruct.mothershipXPosition>=10){ 
-                         spaceShipStruct.mothershipXPosition-=10;
+                         spaceShipStruct.mothershipXPosition-=7;
                     }}
                     xSemaphoreGive(buttons.lock);
                 }
@@ -1271,96 +1271,39 @@ void LevelIncreasingTask(){
     }
 }
 
-void alienShootingTask(){
-
-    while(1){
-        for (int c1 =0;c1<5;c1++){
-
-            for(int c2=0;c2<8;c2++){
-                
-            }
-
-        }
-    }
-}
-
-#define LBI 0x01
-int debugvarr222 =0;
-void vLeftNumber(void *pvParameters){
-uint32_t NotificationBuffer;
-    while(1){
-        NotificationBuffer = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        if (NotificationBuffer | LBI){
-            /*if(xSemaphoreTake(Exercise3VariableIncrementationStruct.lock, portMAX_DELAY) == pdTRUE){
-                Exercise3VariableIncrementationStruct.LeftNumber++;
-                xSemaphoreGive(Exercise3VariableIncrementationStruct.lock);*/ 
-            }
-        }
-        
-    }
-//}
-void vRightNumber(void *pvParameters){
-
-    while(1){
-        if (xSemaphoreTake(RightButtonSignal,portMAX_DELAY) == pdTRUE){
-            if(xSemaphoreTake(Exercise3VariableIncrementationStruct.lock, portMAX_DELAY) == pdTRUE){
-                Exercise3VariableIncrementationStruct.RightNumber++;
-                xSemaphoreGive(Exercise3VariableIncrementationStruct.lock);
-            }
-        }
-    }
-}
-#define toggleRightCircle    0x0001 //Bit 0 toggles the right circle
-#define toggleLeftCircle   0x0002   //Bit 1 roggles the left cicle
-int vLeftCircleDebug = 0;
-void vLeftCircle(void *pvParameters){
-    TickType_t xLastWakeTime;
-    const TickType_t xFrequency = pdMS_TO_TICKS(500);
-    //xLastWakeTime = xTaskGetTickCount();
-    while(1){
-        xLastWakeTime = xTaskGetTickCount();
-        xTaskNotify(PauseTaskHandle, toggleLeftCircle, eSetBits);   //Tell the drawing task to toggle the right circle
-        vLeftCircleDebug++;
-        vTaskDelayUntil(&xLastWakeTime, xFrequency);
-    }
-}
-void vRightCircle(void *pvParameters)
-{
-TickType_t xLastWakeTime;
-const TickType_t xFrequency = pdMS_TO_TICKS(250);
-    while(1){
-
-         xLastWakeTime = xTaskGetTickCount();
-        xTaskNotify(PauseTaskHandle, toggleRightCircle, eSetBits);   //Tell the drawing task to toggle the right circle
-        vTaskDelayUntil(&xLastWakeTime, xFrequency);
-        //printf("toggled right circle!\n");
-    }
-}
-
-int debugVarrunningcheck=0;
-
 
 
 
 void vPauseState(void *pvParameters){
-    uint32_t NotificationBuffer;
-    bool RightCircleFlag = false;
-    bool LeftCircleFlag = false;
- 
-    while (1)
+    image_handle_t pause_image =
+    tumDrawLoadImage("../resources/images/pause.png");        
+    tumDrawSetLoadedImageScale(pause_image,0.3);    
+    static char str[20] = { 0 };
+    while(1)
     {
     tumEventFetchEvents(FETCH_EVENT_BLOCK |
                                 FETCH_EVENT_NO_GL_CHECK);
     xGetButtonInput(); // Update global input
-    NotificationBuffer = ulTaskNotifyTake(pdTRUE, 0);    //Recieve whatever is in the queue and clear it    
     if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
                 pdTRUE) {            
                 xSemaphoreTake(ScreenLock, portMAX_DELAY);
                 tumDrawSetGlobalXOffset(0);
                 tumDrawSetGlobalYOffset(0);
-                tumDrawClear(White); // Clear screen
+                tumDrawClear(Black); // Clear screen
+                tumDrawLoadedImage(pause_image,30,90);
+                
+                    sprintf(str,"Pause menu  S TO START");
+                    tumDrawText(str,400,360,Red);
 
-                vDrawFPS();                    
+
+                    if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
+                        sprintf(str,"Current score: %d", score.killscore);
+                        tumDrawText(str,400,400,Red);
+                        sprintf(str,"Current high score: %d",score.highscore);
+                        tumDrawText(str,400,440,Red);
+                        xSemaphoreGive(score.lock);
+                    }
+        
                 xSemaphoreGive(ScreenLock);
             }
                    
@@ -1599,21 +1542,11 @@ int main(int argc, char *argv[])
                 mainGENERIC_PRIORITY, &PositionIncrementationTask_Handle) != pdPASS) {
     goto err_demotask;
     }
-    if (xTaskCreate(vPauseState, "Exercise 3 main task", mainGENERIC_STACK_SIZE * 2, NULL,
+    if (xTaskCreate(vPauseState, "Pause state task", mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &PauseTaskHandle) != pdPASS) {
     goto err_demotask;
     }
-    LeftCircleHandle= xTaskCreateStatic(vLeftCircle, "Left Circle", STACK_SIZE, NULL,
-                    mainGENERIC_PRIORITY+1, LeftCircleStack,&LeftCircleBuffer); 
 
-    if (xTaskCreate(vRightCircle, "Right Circle Task", mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &RightCircleHandle) != pdPASS) {
-    goto err_demotask;
-    }
-    if (xTaskCreate(vLeftNumber, "LeftNumb Ex3", mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY+1, &LeftNumber) != pdPASS) {
-    goto err_demotask;
-    }
     if (xTaskCreate(vSwapBuffers, "BufferSwapTask",
                     mainGENERIC_STACK_SIZE * 2, NULL, configMAX_PRIORITIES-1,
                     BufferSwap) != pdPASS) {
