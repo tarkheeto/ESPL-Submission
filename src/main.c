@@ -796,11 +796,11 @@ xSemaphoreGive(spaceShipStruct.lock);
 
                     if (buttons.buttons[KEYCODE(RIGHT)]) {
                         if(spaceShipStruct.mothershipXPosition<=560){ 
-                         spaceShipStruct.mothershipXPosition+=6;
+                         spaceShipStruct.mothershipXPosition+=10;
                     }}
                     if (buttons.buttons[KEYCODE(LEFT)]) { 
                         if(spaceShipStruct.mothershipXPosition>=10){ 
-                         spaceShipStruct.mothershipXPosition-=6;
+                         spaceShipStruct.mothershipXPosition-=10;
                     }}
                     xSemaphoreGive(buttons.lock);
                 }
@@ -962,7 +962,9 @@ void collisionDetectionTask(){
             xSemaphoreGive(spaceShipStruct.lock);    
         }
 
-        // ALIEN final descent
+        //collision detection between aliens and shelter blocks    
+
+        // ALIEN bottom descent detection
         for(int c1 =0 ; c1 < 5 ; c1++){
             for(int c2 = 0; c2 <8 ;c2++){
                 if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
@@ -1568,7 +1570,7 @@ int main(int argc, char *argv[])
         goto err_demotask;
     }
     xTaskCreate(collisionDetectionTask,"collision Detection Task", mainGENERIC_STACK_SIZE * 2, NULL,
-                    mainGENERIC_PRIORITY, &collisionDetectionTaskHandle);
+                    mainGENERIC_PRIORITY+3, &collisionDetectionTaskHandle);
     if (xTaskCreate(PositionIncrementation_Task, "Position Incrementation Task", mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &PositionIncrementationTask_Handle) != pdPASS) {
     goto err_demotask;
