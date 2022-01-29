@@ -952,6 +952,27 @@ void collisionDetectionTask(){
                 }
             }        
 
+                // Collision detection between the aliens and shelter
+            for (int counter =0; counter <20;counter++){
+                if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
+
+                    for(int c1= 0;c1<5;c1++){
+                        for (int c2=0;c2<8;c2++){
+                            if(xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
+                              if (abs(aliens_1[c1][c2].posY- shelterBlocks[counter].posY)<8 && abs(aliens_1[c1][c2].posX -shelterBlocks[counter].posX)<20 && 
+                                    shelterBlocks[counter].alive && aliens_1[c1][c2].alive){
+                                    shelterBlocks[counter].alive=false;
+                                 } 
+                    
+                              xSemaphoreGive(aliens_1[c1][c2].lock);
+                            }
+                        }
+                    }
+                    xSemaphoreGive(shelterBlocks[counter].lock);    
+                }
+            }        
+
+
         // Collision detection between the alien Missiles and the mothership 
         if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
             for(int counter=0; counter<8;counter++){
@@ -1338,45 +1359,12 @@ void vPauseState(void *pvParameters){
                 tumDrawSetGlobalXOffset(0);
                 tumDrawSetGlobalYOffset(0);
                 tumDrawClear(White); // Clear screen
-                    if(NotificationBuffer & toggleRightCircle){         //Toggle the Corrosponding Circle if it's time
-                        RightCircleFlag = !RightCircleFlag;
-                    }
-                
-                    if(NotificationBuffer & toggleLeftCircle){   
-                        LeftCircleFlag = !LeftCircleFlag;
-                    }
-                    if (LeftCircleFlag){
-                        tumDrawCircle(200,200,50,Red);
-                    }
-                    if (RightCircleFlag){
-                        tumDrawCircle(400,200,50,Blue);
-                    }
-                    //if (ButtonStateChangeCheck(KEYCODE(V))==true){xTaskNotify(LeftNumber,LEFT_BUTTON_INCREMENT,eSetBits);}
+
                 vDrawFPS();                    
                 xSemaphoreGive(ScreenLock);
-                    /*if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
-                        if (buttons.buttons[KEYCODE(
-                                                Q)]) { // Equiv to SDL_SCANCODE_Q
-                            exit(EXIT_SUCCESS);
-                        }
-                    xSemaphoreGive(buttons.lock);
-
-                    }*/
             }
                    
-    NotificationBuffer = ulTaskNotifyTake(pdTRUE, 0);    //Recieve whatever is in the queue and clear it
-
-    if(NotificationBuffer & toggleRightCircle){         //Toggle the Corrosponding Circle if it's time
-        RightCircleFlag = !RightCircleFlag;
-    }
-
-    if(NotificationBuffer & toggleLeftCircle){   
-        LeftCircleFlag = !LeftCircleFlag;
-        
-    }
     xSemaphoreGive(DrawSignal);
-    debugVarrunningcheck++;
-
     vCheckStateInput();
     vTaskDelay(20);
     }
@@ -1441,9 +1429,11 @@ void vIntGodModeStateTask(){
                 tumDrawSetGlobalXOffset(0);
                 tumDrawSetGlobalYOffset(0);
                 tumDrawClear(Black); // Clear screen
-                sprintf(strdttt, "Axis 1: %5d | Axis 2: %5d", tumEventGetMouseX(),
+                
+                // USED FOR DEVELOPMENT PURPOSES
+                /*sprintf(strdttt, "Axis 1: %5d | Axis 2: %5d", tumEventGetMouseX(),
                 tumEventGetMouseY());
-                tumDrawText(strdttt,10,10,Yellow);
+                tumDrawText(strdttt,10,10,Yellow);*/
                 if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){ 
                     sprintf(strdttt, "Intended Score: %d",score.killscore);
                     tumDrawText(strdttt,130,365,Yellow);
@@ -1474,6 +1464,8 @@ void vIntGodModeStateTask(){
                 }
                 sprintf(strdttt,"God MODE");
                 tumDrawText(strdttt,250,430,Yellow);
+                sprintf(strdttt,"Press G on your keyboard to activate GOD MODE ");
+                tumDrawText(strdttt,250,455,Teal);
                 tumDrawCircle(350,440,13,Grey);
                 if (xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
                     switch (spaceShipStruct.godmode){
