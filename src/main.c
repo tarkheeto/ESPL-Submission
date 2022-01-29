@@ -46,6 +46,8 @@ SemaphoreHandle_t horizontalAlienMotion=NULL;
 TaskHandle_t alienDescentTaskHandle=NULL;
 TaskHandle_t AlienMissiletrackingTaskHandle=NULL;
 TaskHandle_t intGodModeStateHandle=NULL;
+TaskHandle_t godModeMouseDebounceTaskHandle=NULL;
+SemaphoreHandle_t godModeMouseToggle=NULL;
 typedef struct score_t{int score;
 int killscore;
 int highscore;
@@ -147,6 +149,7 @@ typedef struct spaceShipStruct_t
     int spaceShipMissileY;
     int mothershipXPosition;
     int mothershipYPosition; 
+    bool godmode;
     int health; 
     SemaphoreHandle_t lock;
 }spaceShipStruct_t;
@@ -233,8 +236,8 @@ static int vCheckStateInput(void)
             return -1;
         }
 
-        if (buttons.buttons[KEYCODE(G)]) {
-            buttons.buttons[KEYCODE(G)] = 0;
+        if (buttons.buttons[KEYCODE(C)]) {
+            buttons.buttons[KEYCODE(C)] = 0;
             if (StateQueue) {
                 xSemaphoreGive(buttons.lock);
                 xQueueSend(StateQueue, &int_godmode_state_signal, 0);
@@ -652,6 +655,8 @@ void Drawing_Task(void *pvParameters)
                     xSemaphoreGive(score.lock);
                 }
 
+                // Drawing the line that separates health, score and FPS from the ship
+                tumDrawFilledBox(0,435,640,5,White);
 
                 //Drawing the shelter blocks
                 for (int counter =0; counter <20;counter++){
@@ -952,7 +957,9 @@ void collisionDetectionTask(){
             for(int counter=0; counter<8;counter++){
                 if(xSemaphoreTake(alienMissilesStruct[counter].lock,portMAX_DELAY)==pdTRUE){
                        if (abs(alienMissilesStruct[counter].missilePosY- 400)<15 && abs(alienMissilesStruct[counter].missilePosX -spaceShipStruct.mothershipXPosition)<16 && alienMissilesStruct[counter].missileActive) {                           
-                            spaceShipStruct.health--;
+                           if(spaceShipStruct.godmode==false){ 
+                                spaceShipStruct.health--;
+                                }
                             alienMissilesStruct[counter].missileActive=false;               
 
                         } 
@@ -1416,9 +1423,14 @@ void vIntGodModeStateTask(){
     tumDrawLoadImage("../resources/images/arrow_down.png");  
     tumDrawSetLoadedImageScale(arrow_up_image,0.05);
     tumDrawSetLoadedImageScale(arrow_down_image,0.05);
-
+    image_handle_t gamestart_image =
+    tumDrawLoadImage("../resources/images/gamestart.png");        
+    tumDrawSetLoadedImageScale(gamestart_image,0.5);    
     static char strdttt[20] = { 0 };
-
+    if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+        spaceShipStruct.godmode=false;
+        xSemaphoreGive(spaceShipStruct.lock);
+    }
     while(1){
         tumEventFetchEvents(FETCH_EVENT_BLOCK |
                                     FETCH_EVENT_NO_GL_CHECK);
@@ -1439,7 +1451,7 @@ void vIntGodModeStateTask(){
                     tumDrawText(strdttt,450,365,Yellow);
                     xSemaphoreGive(score.lock);
                 }
-                
+                tumDrawLoadedImage(gamestart_image,90,20);
                 tumDrawLoadedImage(arrow_up_image,90,350);
                 tumDrawLoadedImage(arrow_down_image,90,380);
                 tumDrawLoadedImage(arrow_up_image,400,350);
@@ -1460,8 +1472,26 @@ void vIntGodModeStateTask(){
                     }
                     xSemaphoreGive(score.lock);
                 }
-                sprintf(strdttt,"Gode MODE");
-                tumDrawText(strdttt,240,400,Yellow);
+                sprintf(strdttt,"God MODE");
+                tumDrawText(strdttt,250,430,Yellow);
+                tumDrawCircle(350,440,13,Grey);
+                if (xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+                    switch (spaceShipStruct.godmode){
+                        case true:
+                            tumDrawCircle(350,440,10,Green);
+                            break;
+                        case false:
+                            tumDrawCircle(350,440,10,Red);
+                            break;
+                    }
+
+                    if ((ButtonStateChangeCheck(KEYCODE(G))==true)){
+                        spaceShipStruct.godmode=!spaceShipStruct.godmode;
+                    }
+
+                    xSemaphoreGive(spaceShipStruct.lock);
+                }
+                
 
 
                 xSemaphoreGive(ScreenLock);
@@ -1471,6 +1501,8 @@ void vIntGodModeStateTask(){
         vTaskDelay(20);
     }
 }
+
+
 void vDeathState(){
         image_handle_t gameover_image =
         tumDrawLoadImage("../resources/images/gameover.png");        
@@ -1615,7 +1647,7 @@ int main(int argc, char *argv[])
     xTaskCreate(vAlienDescentTask,"task that manages the descent of the aliens",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &alienDescentTaskHandle);   
     xTaskCreate(vIntGodModeStateTask,"task that manages the user settings of god mode",mainGENERIC_STACK_SIZE * 2, NULL,
-                mainGENERIC_PRIORITY, &intGodModeStateHandle);                  
+                mainGENERIC_PRIORITY, &intGodModeStateHandle);     
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");
@@ -1658,5 +1690,4 @@ __attribute__((unused)) void vApplicationIdleHook(void)
     xTimeToSleep.tv_nsec = 0;
     nanosleep(&xTimeToSleep, &xTimeSlept);
 #endif
-}
-// GITHUB TOKEN: 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
+} 
