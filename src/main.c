@@ -52,6 +52,8 @@ spaceShipStruct_t spaceShipStruct;
 
 //UDP STUFF 
 static QueueHandle_t DifficultyQueue = NULL;
+static QueueHandle_t AttackStateQueue = NULL;
+
 #define UDP_BUFFER_SIZE 1024
 #define UDP_RECEIVE_PORT 1234
 #define UDP_TRANSMIT_PORT 1235
@@ -124,6 +126,7 @@ void vUDPControlTask(void *pvParameters)
     int currentpos;
     signed int delta;
     bool attackstate;
+    bool lastattackstate = false;
     udp_soc_receive = aIOOpenUDPSocket(addr, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
 
     printf("UDP socket opened on port %d\n", port);
@@ -140,6 +143,8 @@ void vUDPControlTask(void *pvParameters)
         while (xQueueReceive(DeltaPosQueue, &deltadebug,0 )==pdTRUE){
         }
         while (xQueueReceive(DifficultyQueue, &difficulty, 0) == pdTRUE) {
+        }
+        while (xQueueReceive(AttackStateQueue, &attackstate,0) == pdTRUE ){
         }
         /*while (xQueueReceive(BallYQueue, &ball_y, 0) == pdTRUE) {
         }
@@ -173,6 +178,16 @@ void vUDPControlTask(void *pvParameters)
                          strlen(buf));
             laststate = state;
         }*/
+        if (attackstate != lastattackstate){
+            if (attackstate){
+                sprintf(buf, "ATTACKING");    
+            }else{
+                sprintf(buf, "PASSIVE");    
+            }
+            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                            strlen(buf));
+            lastattackstate=attackstate;
+        }
         if(state!=laststate){
             if(state){  
             sprintf(buf, "RESUME");            
@@ -192,6 +207,10 @@ void vUDPControlTask(void *pvParameters)
                 sprintf(buf,"+%d",deltadebug);
                 aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
             }
+            if(deltadebug==0){
+                sprintf(buf,"%d",deltadebug);
+                aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
+            } 
         }
         if (last_difficulty != difficulty) {
             sprintf(buf, "D%d", difficulty + 1);
@@ -989,11 +1008,13 @@ bool state = true;
 
                 if (ButtonStateChangeCheck(KEYCODE(O))==true){
                     
-                        xSemaphoreGive(shelterCreate);}      
+                        xSemaphoreGive(shelterCreate);}
+                      
                 if (spaceShipStruct.attackState){
-                    spaceShipStruct.spaceShipMissileY-=10;
+                    xQueueSend(AttackStateQueue,&spaceShipStruct.attackState,0);
+                    spaceShipStruct.spaceShipMissileY-=10;                    
                     if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
-                }
+                }else{xQueueSend(AttackStateQueue,&spaceShipStruct.attackState,0);}
                 if(spaceShipStruct.health<=0){
                     spaceShipStruct.health=3;
                     xQueueSend(StateQueue, &dead_state_signal, 0);
@@ -1746,6 +1767,7 @@ int main(int argc, char *argv[])
     aliensCreate = xSemaphoreCreateBinary();
     spaceShipStruct.lock = xSemaphoreCreateMutex();
     NextKeyQueue = xQueueCreate(1, sizeof(opponent_cmd_t));
+    AttackStateQueue =xQueueCreate(1,sizeof(bool));
     DeltaPosQueue = xQueueCreate(5, sizeof(signed int));
     if (!NextKeyQueue) {
         exit(EXIT_FAILURE);
@@ -1754,7 +1776,7 @@ int main(int argc, char *argv[])
     if (!NextStateQueue) {
         exit(EXIT_FAILURE);
     }
-    DifficultyQueue = xQueueCreate(5, sizeof(unsigned char));
+    DifficultyQueue = xQueueCreate(1, sizeof(unsigned char));
     if (!DifficultyQueue) {
         exit(EXIT_FAILURE);
     }
