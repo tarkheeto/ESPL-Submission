@@ -146,38 +146,7 @@ void vUDPControlTask(void *pvParameters)
         }
         while (xQueueReceive(AttackStateQueue, &attackstate,0) == pdTRUE ){
         }
-        /*while (xQueueReceive(BallYQueue, &ball_y, 0) == pdTRUE) {
-        }
-        while (xQueueReceive(PaddleYQueue, &paddle_y, 0) == pdTRUE) {
-        }
-        while (xQueueReceive(DifficultyQueue, &difficulty, 0) == pdTRUE) {
-        }
-        signed int diff = ball_y - paddle_y;
-        if (diff > 0) {
-            sprintf(buf, "+%d", diff);
-        }
-        else {
-            sprintf(buf, "-%d", -diff);
-        }
-        aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
-                     strlen(buf));
-        if (last_difficulty != difficulty) {
-            sprintf(buf, "D%d", difficulty + 1);
-            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
-                         strlen(buf));
-            last_difficulty = difficulty;
-        }*/
-        
-        /*if (state != laststate){
-            if(state){  
-            sprintf(buf, "RESUME");            
-            }else{
-            sprintf(buf, "PAUSE");
-            }
-            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
-                         strlen(buf));
-            laststate = state;
-        }*/
+
         if (attackstate != lastattackstate){
             if (attackstate){
                 sprintf(buf, "ATTACKING");    
@@ -222,20 +191,6 @@ void vUDPControlTask(void *pvParameters)
 
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #define STARTING_STATE INITIAL_STATE
 
@@ -836,12 +791,16 @@ void Drawing_Task(void *pvParameters)
                 //Score drawing
                 if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
                     sprintf(strdt,"Score: %d",score.killscore);
-                    tumDrawText(strdt,280,
+                    tumDrawText(strdt,150,
                               450,
                               Yellow);
                     xSemaphoreGive(score.lock);
                 }
-
+                if (xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+                    sprintf(strdt,"AI = D%d",spaceShipStruct.difficulty+1);
+                    tumDrawText(strdt,250,450,Yellow);
+                    xSemaphoreGive(spaceShipStruct.lock);
+                }
                 // Drawing the line that separates health, score and FPS from the ship
                 tumDrawFilledBox(0,435,640,5,White);
 
@@ -986,40 +945,41 @@ bool state = true;
                     xSemaphoreGive(buttons.lock);
                 }
                 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
-                if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+                    if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
 
-                    if (buttons.buttons[KEYCODE(RIGHT)]) {
-                        if(spaceShipStruct.mothershipXPosition<=600){ 
-                         spaceShipStruct.mothershipXPosition+=7;
-                    }}
-                    if (buttons.buttons[KEYCODE(LEFT)]) { 
-                        if(spaceShipStruct.mothershipXPosition>=10){ 
-                         spaceShipStruct.mothershipXPosition-=7;
-                    }}
-                    xSemaphoreGive(buttons.lock);
-                }
+                        if (buttons.buttons[KEYCODE(RIGHT)]) {
+                            if(spaceShipStruct.mothershipXPosition<=600){ 
+                            spaceShipStruct.mothershipXPosition+=7;
+                        }}
+                        if (buttons.buttons[KEYCODE(LEFT)]) { 
+                            if(spaceShipStruct.mothershipXPosition>=10){ 
+                            spaceShipStruct.mothershipXPosition-=7;
+                        }}
+                        xSemaphoreGive(buttons.lock);
+                    }
                 
-                if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
-                        vSpaceshipShoot();}  
+                    if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
+                            vSpaceshipShoot();}  
 
-                if (ButtonStateChangeCheck(KEYCODE(D))==true){
-                    difficulty = (difficulty + 1) % 3;
-                    xQueueSend(DifficultyQueue, (void *) &difficulty, portMAX_DELAY);}  
+                    if (ButtonStateChangeCheck(KEYCODE(D))==true){
+                        difficulty = (difficulty + 1) % 3;
+                        spaceShipStruct.difficulty=difficulty;
+                        xQueueSend(DifficultyQueue, (void *) &difficulty, portMAX_DELAY);}  
 
-                if (ButtonStateChangeCheck(KEYCODE(O))==true){
-                    
-                        xSemaphoreGive(shelterCreate);}
-                      
-                if (spaceShipStruct.attackState){
-                    xQueueSend(AttackStateQueue,&spaceShipStruct.attackState,0);
-                    spaceShipStruct.spaceShipMissileY-=10;                    
-                    if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
-                }else{xQueueSend(AttackStateQueue,&spaceShipStruct.attackState,0);}
-                if(spaceShipStruct.health<=0){
-                    spaceShipStruct.health=3;
-                    xQueueSend(StateQueue, &dead_state_signal, 0);
-                }
-                xSemaphoreGive(spaceShipStruct.lock);
+                    if (ButtonStateChangeCheck(KEYCODE(O))==true){
+                        xSemaphoreGive(shelterCreate);
+                    }
+                        
+                    if (spaceShipStruct.attackState){
+                        xQueueSend(AttackStateQueue,&spaceShipStruct.attackState,0);
+                        spaceShipStruct.spaceShipMissileY-=10;                    
+                        if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
+                    }else{xQueueSend(AttackStateQueue,&spaceShipStruct.attackState,0);}
+                    if(spaceShipStruct.health<=0){
+                        spaceShipStruct.health=3;
+                        xQueueSend(StateQueue, &dead_state_signal, 0);
+                    }
+                    xSemaphoreGive(spaceShipStruct.lock);
                 }
                 xQueueSend(NextStateQueue, &state, 0);
                 vTaskDelay(20);
@@ -1667,12 +1627,9 @@ void vIntGodModeStateTask(){
                     if ((ButtonStateChangeCheck(KEYCODE(G))==true)){
                         spaceShipStruct.godmode=!spaceShipStruct.godmode;
                     }
-
+                    
                     xSemaphoreGive(spaceShipStruct.lock);
                 }
-                
-
-
                 xSemaphoreGive(ScreenLock);
                 xSemaphoreGive(DrawSignal);
                 }
