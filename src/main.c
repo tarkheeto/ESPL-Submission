@@ -118,13 +118,10 @@ signed int deltadebug;
 void vUDPControlTask(void *pvParameters)
 {
     static char buf[50];
-    char *addr = NULL; // Loopback
-    in_port_t port = UDP_RECEIVE_PORT;
     bool state;
     bool laststate = true;
     char last_difficulty = -1;
     char difficulty = 1;
-    int currentpos;
     signed int delta;
     bool attackstate;
     bool lastattackstate = false;
@@ -135,7 +132,6 @@ void vUDPControlTask(void *pvParameters)
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(15));
         if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-            currentpos = spaceShipStruct.mothershipXPosition;
             attackstate = spaceShipStruct.attackState;
             xSemaphoreGive(spaceShipStruct.lock);
         }
@@ -232,8 +228,6 @@ SemaphoreHandle_t shelterCreate = NULL;
 TaskHandle_t alienCreationTaskHandle=NULL;
 TaskHandle_t collisionDetectionTaskHandle=NULL;
 int debugVar = 0;
-static TaskHandle_t LeftNumber = NULL;
-static TaskHandle_t alienShootingTaskHandle=NULL;
 /* configSUPPORT_STATIC_ALLOCATION is set to 1, so the application must provide an
 implementation of vApplicationGetIdleTaskMemory() to provide the memory that is
 used by the Idle task. */
@@ -339,8 +333,6 @@ const int debounceDelay = pdMS_TO_TICKS(25);
 int xOffset = 0;
 int yOffset = 0;
 //-----------------------------------------
-static TaskHandle_t LeftCircleHandle = NULL;
-static TaskHandle_t RightCircleHandle = NULL;
 static TaskHandle_t DrawingTask_Handle = NULL;
 static TaskHandle_t PositionIncrementationTask_Handle = NULL;
 static TaskHandle_t BufferSwap = NULL;
@@ -783,7 +775,7 @@ void Drawing_Task(void *pvParameters)
         image_handle_t heart_image=
         tumDrawLoadImage("../resources/images/heart.png");
 
-        static char strdt[10] = { 0 };
+        static char strdt[40] = { 0 };
                
     while (1) {
 
@@ -1023,7 +1015,6 @@ in_port_t port = UDP_RECEIVE_PORT;
 void vUDPInputCheckingTask(){
 int lastpos; 
 signed int delta;
-bool activestate =false;
     while(1){
 
                 static opponent_cmd_t current_key = NONE;
@@ -1033,31 +1024,33 @@ bool activestate =false;
                 }
                 if (current_key){ 
                     if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-                        lastpos=spaceShipStruct.mothershipXPosition;
-                        if (current_key == INC) {
-                            printf("INC\n");
-                            if(spaceShipStruct.mothershipXPosition<=500){ 
-                                spaceShipStruct.mothershipXPosition+=7;
-                                delta= lastpos - spaceShipStruct.mothershipXPosition;
-                                xQueueSend(DeltaPosQueue,&delta,0);
-                            }else if(spaceShipStruct.mothershipXPosition>500 && spaceShipStruct.mothershipXPosition<=590){ 
-                                spaceShipStruct.mothershipXPosition+=7;
-                                delta= lastpos - spaceShipStruct.mothershipXPosition;
-                                xQueueSend(DeltaPosQueue,&delta,0);
-                            }else if(spaceShipStruct.mothershipXPosition>=590){
-                                delta =0;
-                                xQueueSend(DeltaPosQueue,&delta,0);
-                            } 
+                        if(spaceShipStruct.AI){
+                            lastpos=spaceShipStruct.mothershipXPosition;
+                            if (current_key == INC) {
+                                //printf("INC\n"); for debugging purposes
+                                if(spaceShipStruct.mothershipXPosition<=500){ 
+                                    spaceShipStruct.mothershipXPosition+=7;
+                                    delta= lastpos - spaceShipStruct.mothershipXPosition;
+                                    xQueueSend(DeltaPosQueue,&delta,0);
+                                }else if(spaceShipStruct.mothershipXPosition>500 && spaceShipStruct.mothershipXPosition<=590){ 
+                                    spaceShipStruct.mothershipXPosition+=7;
+                                    delta= lastpos - spaceShipStruct.mothershipXPosition;
+                                    xQueueSend(DeltaPosQueue,&delta,0);
+                                }else if(spaceShipStruct.mothershipXPosition>=590){
+                                    delta =0;
+                                    xQueueSend(DeltaPosQueue,&delta,0);
+                                } 
+                            }
+                            else if (current_key == DEC) {
+                               // printf("DEC\n"); for debugging purposes
+                                if(spaceShipStruct.mothershipXPosition>=10){ 
+                                    spaceShipStruct.mothershipXPosition-=7;
+                                    delta= lastpos - spaceShipStruct.mothershipXPosition;
+                                    xQueueSend(DeltaPosQueue,&delta,0);
+                                }else {delta= 0;
+                                    xQueueSend(DeltaPosQueue,&delta,0);}                
+                            }  
                         }
-                        else if (current_key == DEC) {
-                            printf("DEC\n");
-                            if(spaceShipStruct.mothershipXPosition>=10){ 
-                                spaceShipStruct.mothershipXPosition-=7;
-                                delta= lastpos - spaceShipStruct.mothershipXPosition;
-                                xQueueSend(DeltaPosQueue,&delta,0);
-                            }else {delta= 0;
-                                   xQueueSend(DeltaPosQueue,&delta,0);}                
-                        }  
                     xSemaphoreGive(spaceShipStruct.lock);
                     }
                 }
@@ -1389,7 +1382,6 @@ typedef struct aliensHorizontalMotionStruct_t{
 aliensHorizontalMotionStruct_t aliensHorizontalMotionStruct;
 
 void AliensMovingOneTask(){
-    int lvl;
     int excessMotion;
     if (xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){
         aliensHorizontalMotionStruct.posXCounter=0;
@@ -1616,7 +1608,7 @@ void vIntGodModeStateTask(){
     image_handle_t gamestart_image =
     tumDrawLoadImage("../resources/images/gamestart.png");        
     tumDrawSetLoadedImageScale(gamestart_image,0.5);    
-    static char strdttt[20] = { 0 };
+    static char strdttt[40] = { 0 };
     if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
         spaceShipStruct.godmode=false;
         xSemaphoreGive(spaceShipStruct.lock);
