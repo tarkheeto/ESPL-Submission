@@ -179,7 +179,7 @@ void vUDPControlTask(void *pvParameters)
             if(deltadebug==0){
                 sprintf(buf,"%d",deltadebug);
                 aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
-            } 
+            }
         }
         if (last_difficulty != difficulty) {
             sprintf(buf, "D%d", difficulty + 1);
@@ -1006,11 +1006,18 @@ bool activestate =false;
                         lastpos=spaceShipStruct.mothershipXPosition;
                         if (current_key == INC) {
                             printf("INC\n");
-                            if(spaceShipStruct.mothershipXPosition<=600){ 
+                            if(spaceShipStruct.mothershipXPosition<=500){ 
                                 spaceShipStruct.mothershipXPosition+=7;
                                 delta= lastpos - spaceShipStruct.mothershipXPosition;
                                 xQueueSend(DeltaPosQueue,&delta,0);
-                            }           
+                            }else if(spaceShipStruct.mothershipXPosition>500 && spaceShipStruct.mothershipXPosition<=590){ 
+                                spaceShipStruct.mothershipXPosition+=7;
+                                delta= lastpos - spaceShipStruct.mothershipXPosition;
+                                xQueueSend(DeltaPosQueue,&delta,0);
+                            }else if(spaceShipStruct.mothershipXPosition>=590){
+                                delta =0;
+                                xQueueSend(DeltaPosQueue,&delta,0);
+                            } 
                         }
                         else if (current_key == DEC) {
                             printf("DEC\n");
@@ -1018,7 +1025,8 @@ bool activestate =false;
                                 spaceShipStruct.mothershipXPosition-=7;
                                 delta= lastpos - spaceShipStruct.mothershipXPosition;
                                 xQueueSend(DeltaPosQueue,&delta,0);
-                            }               
+                            }else {delta= 0;
+                                   xQueueSend(DeltaPosQueue,&delta,0);}                
                         }  
                     xSemaphoreGive(spaceShipStruct.lock);
                     }
