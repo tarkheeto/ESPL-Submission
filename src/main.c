@@ -38,6 +38,117 @@
 #define INT_GODMODE_STATE 20
 
 
+//UDP STUFF 
+
+#define UDP_BUFFER_SIZE 1024
+#define UDP_RECEIVE_PORT 1234
+#define UDP_TRANSMIT_PORT 1235
+
+TaskHandle_t UDPInputCheckingTaskHandle = NULL;
+TaskHandle_t UDPControlTask = NULL;
+static QueueHandle_t NextKeyQueue = NULL;
+
+static SemaphoreHandle_t HandleUDP = NULL;
+
+aIO_handle_t udp_soc_receive = NULL, udp_soc_transmit = NULL;
+typedef enum { NONE = 0, INC = 1, DEC = -1 } opponent_cmd_t;
+void UDPHandler(size_t read_size, char *buffer, void *args)
+{
+    opponent_cmd_t next_key = NONE;
+    BaseType_t xHigherPriorityTaskWoken1 = pdFALSE;
+    BaseType_t xHigherPriorityTaskWoken2 = pdFALSE;
+    BaseType_t xHigherPriorityTaskWoken3 = pdFALSE;
+
+    if (xSemaphoreTakeFromISR(HandleUDP, &xHigherPriorityTaskWoken1) ==
+        pdTRUE) {
+
+        char send_command = 0;
+        if (strncmp(buffer, "INC", (read_size < 3) ? read_size : 3) ==
+            0) {
+            next_key = INC;
+            send_command = 1;
+        }
+        else if (strncmp(buffer, "DEC",
+                         (read_size < 3) ? read_size : 3) == 0) {
+            next_key = DEC;
+            send_command = 1;
+        }
+        else if (strncmp(buffer, "NONE",
+                         (read_size < 4) ? read_size : 4) == 0) {
+            next_key = NONE;
+            send_command = 1;
+        }
+
+        if (NextKeyQueue && send_command) {
+            xQueueSendFromISR(NextKeyQueue, (void *)&next_key,
+                              &xHigherPriorityTaskWoken2);
+        }
+        xSemaphoreGiveFromISR(HandleUDP, &xHigherPriorityTaskWoken3);
+
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken1 |
+                           xHigherPriorityTaskWoken2 |
+                           xHigherPriorityTaskWoken3);
+    }
+    else {
+        fprintf(stderr, "[ERROR] Overlapping UDPHandler call\n");
+    }
+}
+
+
+void vUDPControlTask(void *pvParameters)
+{
+    static char buf[50];
+    char *addr = NULL; // Loopback
+    in_port_t port = UDP_RECEIVE_PORT;
+    unsigned int ball_y = 0;
+    unsigned int paddle_y = 0;
+    char last_difficulty = -1;
+    char difficulty = 1;
+
+    udp_soc_receive =
+        aIOOpenUDPSocket(addr, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
+
+    printf("UDP socket opened on port %d\n", port);
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(15));
+        /*while (xQueueReceive(BallYQueue, &ball_y, 0) == pdTRUE) {
+        }
+        while (xQueueReceive(PaddleYQueue, &paddle_y, 0) == pdTRUE) {
+        }
+        while (xQueueReceive(DifficultyQueue, &difficulty, 0) == pdTRUE) {
+        }
+        signed int diff = ball_y - paddle_y;
+        if (diff > 0) {
+            sprintf(buf, "+%d", diff);
+        }
+        else {
+            sprintf(buf, "-%d", -diff);
+        }
+        aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                     strlen(buf));
+        if (last_difficulty != difficulty) {
+            sprintf(buf, "D%d", difficulty + 1);
+            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                         strlen(buf));
+            last_difficulty = difficulty;
+        }*/
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #define STARTING_STATE INITIAL_STATE
 
@@ -826,12 +937,38 @@ xSemaphoreGive(spaceShipStruct.lock);
                 xSemaphoreGive(spaceShipStruct.lock);
                 }
 
-
                 vTaskDelay((TickType_t)20);
             }
             vCheckStateInput();
 
 }
+
+
+void vUDPInputCheckingTask(){
+
+    while(1){
+
+                static opponent_cmd_t current_key = NONE;
+
+                if (NextKeyQueue) {
+                    xQueueReceive(NextKeyQueue, &current_key, 0);
+                }
+
+                if (current_key == INC) {
+                    printf("INC \n");
+                }
+                else if (current_key == DEC) {
+                    printf("DEC \n");
+                }
+
+        vTaskDelay(20);
+    }
+
+}
+
+
+
+
 void shelterCreatingTask(){
     for (int counter =0; counter <20;counter++){
         if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
@@ -1500,6 +1637,7 @@ int main(int argc, char *argv[])
         PRINT_ERROR("Failed to initialize audio");
         goto err_init_audio;
     }
+    HandleUDP = xSemaphoreCreateMutex();
     score.lock = xSemaphoreCreateMutex();
     for(int cx =0;cx<8;cx++){
         alienMissilesStruct[cx].lock=xSemaphoreCreateMutex();
@@ -1521,6 +1659,10 @@ int main(int argc, char *argv[])
     shelterCreate =xSemaphoreCreateBinary();
     aliensCreate = xSemaphoreCreateBinary();
     spaceShipStruct.lock = xSemaphoreCreateMutex();
+    NextKeyQueue = xQueueCreate(1, sizeof(opponent_cmd_t));
+    if (!NextKeyQueue) {
+        exit(EXIT_FAILURE);
+    }
     StateQueue = xQueueCreate(STATE_QUEUE_LENGTH, sizeof(unsigned char));
     if (!StateQueue) {
         PRINT_ERROR("Could not open state queue");
@@ -1573,6 +1715,8 @@ int main(int argc, char *argv[])
                 mainGENERIC_PRIORITY, &alienDescentTaskHandle);   
     xTaskCreate(vIntGodModeStateTask,"task that manages the user settings of god mode",mainGENERIC_STACK_SIZE * 2, NULL,
                 mainGENERIC_PRIORITY, &intGodModeStateHandle);     
+    xTaskCreate(vUDPControlTask, "UDPControlTask", mainGENERIC_STACK_SIZE, NULL, mainGENERIC_PRIORITY,&UDPControlTask);            
+    xTaskCreate(vUDPInputCheckingTask, "UDP Input checking Task", mainGENERIC_STACK_SIZE, NULL, mainGENERIC_PRIORITY,&UDPInputCheckingTaskHandle);            
     DrawSignal = xSemaphoreCreateBinary(); // Screen buffer locking
     if (!DrawSignal) {
         PRINT_ERROR("Failed to create draw signal");

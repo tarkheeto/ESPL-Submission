@@ -1,0 +1,13 @@
+# Target labels
+ astyle
+# Source files and their labels
+/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/astyle
+/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/astyle.rule
+/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/astyle-complete.rule
+/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-install.rule
+/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-mkdir.rule
+/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-download.rule
+/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-update.rule
+/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-patch.rule
+/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-configure.rule
+/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-build.rule

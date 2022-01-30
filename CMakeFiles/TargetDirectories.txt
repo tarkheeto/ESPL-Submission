@@ -1,4 +1,6 @@
-/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/edit_cache.dir
 /home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/rebuild_cache.dir
 /home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/FreeRTOS_Emulator.dir
+/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/format.dir
+/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/edit_cache.dir
+/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/astyle.dir
 /home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/commit.dir

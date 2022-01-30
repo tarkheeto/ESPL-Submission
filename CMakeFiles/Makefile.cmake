@@ -22,6 +22,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "config/vscode/extensions.local.json.in"
   "config/vscode/launch.local.json.in"
   "config/vscode/tasks.local.json.in"
+  "external/astyle/tmp/astyle-cfgcmd.txt.in"
   "/usr/share/cmake-3.16/Modules/CMakeCInformation.cmake"
   "/usr/share/cmake-3.16/Modules/CMakeCXXInformation.cmake"
   "/usr/share/cmake-3.16/Modules/CMakeCheckCompilerFlagCommonPatterns.cmake"
@@ -49,6 +50,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/usr/share/cmake-3.16/Modules/Platform/Linux-GNU.cmake"
   "/usr/share/cmake-3.16/Modules/Platform/Linux.cmake"
   "/usr/share/cmake-3.16/Modules/Platform/UnixPaths.cmake"
+  "/usr/share/cmake-3.16/Modules/RepositoryInfo.txt.in"
   )
 
 # The corresponding makefile is:
@@ -59,6 +61,8 @@ set(CMAKE_MAKEFILE_OUTPUTS
 
 # Byproducts of CMake generate step:
 set(CMAKE_MAKEFILE_PRODUCTS
+  "external/astyle/stamp/astyle-gitinfo.txt"
+  "external/astyle/tmp/astyle-cfgcmd.txt"
   ".vscode/launch.json"
   ".vscode/extensions.json"
   ".vscode/tasks.json"
@@ -69,5 +73,7 @@ set(CMAKE_MAKEFILE_PRODUCTS
 # Dependency information for all targets:
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/FreeRTOS_Emulator.dir/DependInfo.cmake"
+  "CMakeFiles/format.dir/DependInfo.cmake"
+  "CMakeFiles/astyle.dir/DependInfo.cmake"
   "CMakeFiles/commit.dir/DependInfo.cmake"
   )

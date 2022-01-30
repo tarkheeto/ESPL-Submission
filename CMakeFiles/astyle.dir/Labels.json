@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/astyle"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/astyle.rule"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles/astyle-complete.rule"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-install.rule"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-mkdir.rule"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-download.rule"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-update.rule"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-patch.rule"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-configure.rule"
+		},
+		{
+			"file" : "/home/tarkheeto/FreeRTOS-Emulator/external/astyle/stamp/astyle-build.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"astyle"
+		],
+		"name" : "astyle"
+	}
+}

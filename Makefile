@@ -56,17 +56,6 @@ CMAKE_BINARY_DIR = /home/tarkheeto/FreeRTOS-Emulator
 #=============================================================================
 # Targets provided globally by CMake.
 
-# Special rule for the target edit_cache
-edit_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
-	/usr/bin/cmake-gui -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
-.PHONY : edit_cache
-
-# Special rule for the target edit_cache
-edit_cache/fast: edit_cache
-
-.PHONY : edit_cache/fast
-
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
@@ -77,6 +66,17 @@ rebuild_cache:
 rebuild_cache/fast: rebuild_cache
 
 .PHONY : rebuild_cache/fast
+
+# Special rule for the target edit_cache
+edit_cache:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
+	/usr/bin/cmake-gui -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+.PHONY : edit_cache
+
+# Special rule for the target edit_cache
+edit_cache/fast: edit_cache
+
+.PHONY : edit_cache/fast
 
 # The main all target
 all: cmake_check_build_system
@@ -122,6 +122,32 @@ FreeRTOS_Emulator: cmake_check_build_system
 FreeRTOS_Emulator/fast:
 	$(MAKE) -f CMakeFiles/FreeRTOS_Emulator.dir/build.make CMakeFiles/FreeRTOS_Emulator.dir/build
 .PHONY : FreeRTOS_Emulator/fast
+
+#=============================================================================
+# Target rules for targets named format
+
+# Build rule for target.
+format: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 format
+.PHONY : format
+
+# fast build rule for target.
+format/fast:
+	$(MAKE) -f CMakeFiles/format.dir/build.make CMakeFiles/format.dir/build
+.PHONY : format/fast
+
+#=============================================================================
+# Target rules for targets named astyle
+
+# Build rule for target.
+astyle: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 astyle
+.PHONY : astyle
+
+# fast build rule for target.
+astyle/fast:
+	$(MAKE) -f CMakeFiles/astyle.dir/build.make CMakeFiles/astyle.dir/build
+.PHONY : astyle/fast
 
 #=============================================================================
 # Target rules for targets named commit
@@ -601,9 +627,11 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... FreeRTOS_Emulator"
+	@echo "... format"
+	@echo "... edit_cache"
+	@echo "... astyle"
 	@echo "... commit"
 	@echo "... lib/AsyncIO/AsyncIO.o"
 	@echo "... lib/AsyncIO/AsyncIO.i"

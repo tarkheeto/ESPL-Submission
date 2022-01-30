@@ -54,6 +54,7 @@ CMAKE_BINARY_DIR = /home/tarkheeto/FreeRTOS-Emulator
 
 # The main recursive "all" target.
 all: CMakeFiles/FreeRTOS_Emulator.dir/all
+all: CMakeFiles/astyle.dir/all
 
 .PHONY : all
 
@@ -64,6 +65,8 @@ preinstall:
 
 # The main recursive "clean" target.
 clean: CMakeFiles/FreeRTOS_Emulator.dir/clean
+clean: CMakeFiles/format.dir/clean
+clean: CMakeFiles/astyle.dir/clean
 clean: CMakeFiles/commit.dir/clean
 
 .PHONY : clean
@@ -96,13 +99,67 @@ CMakeFiles/FreeRTOS_Emulator.dir/clean:
 .PHONY : CMakeFiles/FreeRTOS_Emulator.dir/clean
 
 #=============================================================================
+# Target rules for target CMakeFiles/format.dir
+
+# All Build rule for target.
+CMakeFiles/format.dir/all:
+	$(MAKE) -f CMakeFiles/format.dir/build.make CMakeFiles/format.dir/depend
+	$(MAKE) -f CMakeFiles/format.dir/build.make CMakeFiles/format.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles --progress-num=28 "Built target format"
+.PHONY : CMakeFiles/format.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/format.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/tarkheeto/FreeRTOS-Emulator/CMakeFiles 1
+	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/format.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/tarkheeto/FreeRTOS-Emulator/CMakeFiles 0
+.PHONY : CMakeFiles/format.dir/rule
+
+# Convenience name for target.
+format: CMakeFiles/format.dir/rule
+
+.PHONY : format
+
+# clean rule for target.
+CMakeFiles/format.dir/clean:
+	$(MAKE) -f CMakeFiles/format.dir/build.make CMakeFiles/format.dir/clean
+.PHONY : CMakeFiles/format.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/astyle.dir
+
+# All Build rule for target.
+CMakeFiles/astyle.dir/all:
+	$(MAKE) -f CMakeFiles/astyle.dir/build.make CMakeFiles/astyle.dir/depend
+	$(MAKE) -f CMakeFiles/astyle.dir/build.make CMakeFiles/astyle.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles --progress-num=19,20,21,22,23,24,25,26 "Built target astyle"
+.PHONY : CMakeFiles/astyle.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/astyle.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/tarkheeto/FreeRTOS-Emulator/CMakeFiles 8
+	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/astyle.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/tarkheeto/FreeRTOS-Emulator/CMakeFiles 0
+.PHONY : CMakeFiles/astyle.dir/rule
+
+# Convenience name for target.
+astyle: CMakeFiles/astyle.dir/rule
+
+.PHONY : astyle
+
+# clean rule for target.
+CMakeFiles/astyle.dir/clean:
+	$(MAKE) -f CMakeFiles/astyle.dir/build.make CMakeFiles/astyle.dir/clean
+.PHONY : CMakeFiles/astyle.dir/clean
+
+#=============================================================================
 # Target rules for target CMakeFiles/commit.dir
 
 # All Build rule for target.
 CMakeFiles/commit.dir/all:
 	$(MAKE) -f CMakeFiles/commit.dir/build.make CMakeFiles/commit.dir/depend
 	$(MAKE) -f CMakeFiles/commit.dir/build.make CMakeFiles/commit.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles --progress-num=19 "Built target commit"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/tarkheeto/FreeRTOS-Emulator/CMakeFiles --progress-num=27 "Built target commit"
 .PHONY : CMakeFiles/commit.dir/all
 
 # Build rule for subdir invocation for target.

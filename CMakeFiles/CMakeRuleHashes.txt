@@ -1,2 +1,12 @@
 # Hashes of file build rules.
+9b6b7858eb89cea88ef391fcb7ab364e CMakeFiles/astyle
+f7d1c6d827dd0e34cda39d0efdd6aa6b CMakeFiles/astyle-complete
 13d5e00c7cc7fbab1ff1abb2d2ce7df6 CMakeFiles/commit
+590149a9c2434b7ed2fede600e6ccc82 CMakeFiles/format
+f599a0c890191c41484ff34566239786 external/astyle/stamp/astyle-build
+6b885703cdb384dafc098f0c0669b998 external/astyle/stamp/astyle-configure
+ae9f95b2db3a4129f426506a76ba345f external/astyle/stamp/astyle-download
+ac9675a327e292feedc399a3430b5c7f external/astyle/stamp/astyle-install
+6a5e985034b246f52981e00f555b28cb external/astyle/stamp/astyle-mkdir
+ee3a8062b1242e4d6f5870eea80c4174 external/astyle/stamp/astyle-patch
+ea1931f3b0b83cd365f22c5f2eb1d37e external/astyle/stamp/astyle-update
