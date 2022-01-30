@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "tum_ball.h": "c",
-        "freertos.h": "c"
+        "freertos.h": "c",
+        "inttypes.h": "c"
     }
 }

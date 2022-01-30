@@ -114,7 +114,6 @@ void UDPHandler(size_t read_size, char *buffer, void *args)
     }
 }
 
-signed int deltadebug;
 void vUDPControlTask(void *pvParameters)
 {
     static char buf[50];
@@ -122,7 +121,7 @@ void vUDPControlTask(void *pvParameters)
     bool laststate = true;
     char last_difficulty = -1;
     char difficulty = 1;
-    signed int delta;
+    signed int deltadebug;
     bool attackstate;
     bool lastattackstate = false;
     //udp_soc_receive = aIOOpenUDPSocket(addr, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
@@ -612,1081 +611,1264 @@ initial_state:
 
 void vDrawFPS(void)
 {
-    static unsigned int periods[FPS_AVERAGE_COUNT] = { 0 };
-    static unsigned int periods_total = 0;
-    static unsigned int index = 0;
-    static unsigned int average_count = 0;
-    static TickType_t xLastWakeTime = 0, prevWakeTime = 0;
-    static char str[10] = { 0 };
-    static int text_width;
-    int fps = 0;
-    font_handle_t cur_font = tumFontGetCurFontHandle();
+	static unsigned int periods[FPS_AVERAGE_COUNT] = { 0 };
+	static unsigned int periods_total = 0;
+	static unsigned int index = 0;
+	static unsigned int average_count = 0;
+	static TickType_t xLastWakeTime = 0, prevWakeTime = 0;
+	static char str[10] = { 0 };
+	static int text_width;
+	int fps = 0;
+	font_handle_t cur_font = tumFontGetCurFontHandle();
 
-    if (average_count < FPS_AVERAGE_COUNT) {
-        average_count++;
-    }
-    else {
-        periods_total -= periods[index];
-    }
+	if (average_count < FPS_AVERAGE_COUNT)
+	{
+		average_count++;
+	}
+	else
+	{
+		periods_total -= periods[index];
+	}
 
-    xLastWakeTime = xTaskGetTickCount();
+	xLastWakeTime = xTaskGetTickCount();
 
-    if (prevWakeTime != xLastWakeTime) {
-        periods[index] =
-            configTICK_RATE_HZ / (xLastWakeTime - prevWakeTime);
-        prevWakeTime = xLastWakeTime;
-    }
-    else {
-        periods[index] = 0;
-    }
+	if (prevWakeTime != xLastWakeTime)
+	{
+		periods[index] =
+			configTICK_RATE_HZ / (xLastWakeTime - prevWakeTime);
+		prevWakeTime = xLastWakeTime;
+	}
+	else
+	{
+		periods[index] = 0;
+	}
 
-    periods_total += periods[index];
+	periods_total += periods[index];
 
-    if (index == (FPS_AVERAGE_COUNT - 1)) {
-        index = 0;
-    }
-    else {
-        index++;
-    }
+	if (index == (FPS_AVERAGE_COUNT - 1))
+	{
+		index = 0;
+	}
+	else
+	{
+		index++;
+	}
 
-    fps = periods_total / average_count;
+	fps = periods_total / average_count;
 
-    tumFontSelectFontFromName(FPS_FONT);
+	tumFontSelectFontFromName(FPS_FONT);
 
-    sprintf(str, "FPS: %2d", fps);
+	sprintf(str, "FPS: %2d", fps);
 
-    if (!tumGetTextSize((char *)str, &text_width, NULL))
-        checkDraw(tumDrawText(str, SCREEN_WIDTH - text_width - 10,
-                              SCREEN_HEIGHT - DEFAULT_FONT_SIZE * 1.5,
-                              Skyblue),
-                  __FUNCTION__);
+	if (!tumGetTextSize((char*) str, &text_width, NULL))
+		checkDraw(tumDrawText(str, SCREEN_WIDTH - text_width - 10,
+				SCREEN_HEIGHT - DEFAULT_FONT_SIZE *1.5,
+				Skyblue),
+			__FUNCTION__);
 
-    tumFontSelectFontFromHandle(cur_font);
-    tumFontPutFontHandle(cur_font);
+	tumFontSelectFontFromHandle(cur_font);
+	tumFontPutFontHandle(cur_font);
 }
 void xGetButtonInput(void)
 {
-    if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
-        xQueueReceive(buttonInputQueue, &buttons.buttons, 0);
-        xSemaphoreGive(buttons.lock);
-    }
+	if (xSemaphoreTake(buttons.lock, 0) == pdTRUE)
+	{
+		xQueueReceive(buttonInputQueue, &buttons.buttons, 0);
+		xSemaphoreGive(buttons.lock);
+	}
 }
 void checkDraw(unsigned char status, const char *msg)
 {
-    if (status) {
-        if (msg)
-            fprints(stderr, "[ERROR] %s, %s\n", msg,
-                    tumGetErrorMessage());
-        else {
-            fprints(stderr, "[ERROR] %s\n", tumGetErrorMessage());
-        }
-    }   
+	if (status)
+	{
+		if (msg)
+			fprints(stderr, "[ERROR] %s, %s\n", msg,
+				tumGetErrorMessage());
+		else
+		{
+			fprints(stderr, "[ERROR] %s\n", tumGetErrorMessage());
+		}
+	}
 }
 /*  
- *   The Task that refreshes the screen at a constant frame rate
+ *  The Task that refreshes the screen at a constant frame rate
  */
 void vSwapBuffers(void *pvParameters)
 {
-    TickType_t xLastWakeTime;
-    xLastWakeTime = xTaskGetTickCount();
-    const TickType_t frameratePeriod = 20;
+	TickType_t xLastWakeTime;
+	xLastWakeTime = xTaskGetTickCount();
+	const TickType_t frameratePeriod = 20;
 
-    tumDrawBindThread(); // Setup Rendering handle with correct GL context
+	tumDrawBindThread();	// Setup Rendering handle with correct GL context
 
-    while (1) {
-        if (xSemaphoreTake(ScreenLock, portMAX_DELAY) == pdTRUE) {
-            tumDrawUpdateScreen();
-            tumEventFetchEvents(FETCH_EVENT_BLOCK);
-            xSemaphoreGive(ScreenLock);
-            xSemaphoreGive(DrawSignal);
-            vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(frameratePeriod));
-        }
-    }
+	while (1)
+	{
+		if (xSemaphoreTake(ScreenLock, portMAX_DELAY) == pdTRUE)
+		{
+			tumDrawUpdateScreen();
+			tumEventFetchEvents(FETCH_EVENT_BLOCK);
+			xSemaphoreGive(ScreenLock);
+			xSemaphoreGive(DrawSignal);
+			vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(frameratePeriod));
+		}
+	}
 }
 
-
-/* function that detects a change in the state of a button 
+/*function that detects a change in the state of a button 
 
     takes in : The SDL index of the button to be checked 
-    
+
     gives out: true if the button is changed from LOW to HIGH and false else 
-*/    
+*/
 bool ButtonStateChangeCheck(int buttonSDLIndex)
 {
-    //step 1 initialise a ret and a button state variable 
-    unsigned char buttonState = 0;
-    bool ret = false;
-    
-    if (xSemaphoreTake(buttons.lock, 0) == pdTRUE)
-    {
-        buttonState = buttons.buttons[buttonSDLIndex]; //save the state from the buffer onto the variable we just created
-    }
+	//step 1 initialise a ret and a button state variable 
+	unsigned char buttonState = 0;
+	bool ret = false;
 
-    //Step3 Compare the button state to the previous one
-    if (buttonState != buttons.lastButtonState[buttonSDLIndex]) {
-        //If theyre diff : check the debounce 
-        if (xTaskGetTickCount() - buttons.lastChange[buttonSDLIndex] > debounceDelay) {
-            if (buttonState ==1 ) {
-                //this means LOW to HIGH return TRUE 
-                ret = true;
-            }
-            // Save the time at which the change occured
-            buttons.lastChange[buttonSDLIndex] = xTaskGetTickCount();
-        }
-    }
-    // Update the buffer with the new state 
-    buttons.lastButtonState[buttonSDLIndex] = buttonState;
-    xSemaphoreGive(buttons.lock);
+	if (xSemaphoreTake(buttons.lock, 0) == pdTRUE)
+	{
+		buttonState = buttons.buttons[buttonSDLIndex];	//save the state from the buffer onto the variable we just created
+	}
 
-    return ret;
+	//Step3 Compare the button state to the previous one
+	if (buttonState != buttons.lastButtonState[buttonSDLIndex])
+	{
+		//If theyre diff : check the debounce 
+		if (xTaskGetTickCount() - buttons.lastChange[buttonSDLIndex] > debounceDelay)
+		{
+			if (buttonState == 1)
+			{
+			 	//this means LOW to HIGH return TRUE 
+				ret = true;
+			}
+			// Save the time at which the change occured
+			buttons.lastChange[buttonSDLIndex] = xTaskGetTickCount();
+		}
+	}
+	// Update the buffer with the new state 
+	buttons.lastButtonState[buttonSDLIndex] = buttonState;
+	xSemaphoreGive(buttons.lock);
+
+	return ret;
 }
 
 void Drawing_Task(void *pvParameters)
 {
-        // Mothership image handle
-        image_handle_t ball_spritesheet_image =
-        tumDrawLoadImage("../resources/images/mothership.png");
+	// Mothership image handle
+	image_handle_t ball_spritesheet_image =
+		tumDrawLoadImage("../resources/images/mothership.png");
 
-        // Main logo at the top middle section 
-        image_handle_t mainlogo_image = 
-        tumDrawLoadImage("../resources/images/mainlogo.png");
+	// Main logo at the top middle section 
+	image_handle_t mainlogo_image =
+		tumDrawLoadImage("../resources/images/mainlogo.png");
 
-        //Alien Type 1 
-        image_handle_t alien1_image =
-        tumDrawLoadImage("../resources/images/firstalientype.png");
+	//Alien Type 1 
+	image_handle_t alien1_image =
+		tumDrawLoadImage("../resources/images/firstalientype.png");
 
-        //Alien Type 2
-        image_handle_t alien2_image =
-        tumDrawLoadImage("../resources/images/secondalientype.png");
-    
-        //Alien Type 3
-        image_handle_t alien3_image =
-        tumDrawLoadImage("../resources/images/thirdalientype.png");
+	//Alien Type 2
+	image_handle_t alien2_image =
+		tumDrawLoadImage("../resources/images/secondalientype.png");
 
-        //Alien Type 4
-        image_handle_t alien4_image =
-        tumDrawLoadImage("../resources/images/fourthalientype.png");
+	//Alien Type 3
+	image_handle_t alien3_image =
+		tumDrawLoadImage("../resources/images/thirdalientype.png");
 
-        //Alien Type 5
-        image_handle_t alien5_image =
-        tumDrawLoadImage("../resources/images/fifthalientype.png");
+	//Alien Type 4
+	image_handle_t alien4_image =
+		tumDrawLoadImage("../resources/images/fourthalientype.png");
 
-        //Mothership Health
-        image_handle_t heart_image=
-        tumDrawLoadImage("../resources/images/heart.png");
+	//Alien Type 5
+	image_handle_t alien5_image =
+		tumDrawLoadImage("../resources/images/fifthalientype.png");
 
-        static char strdt[40] = { 0 };
-               
-    while (1) {
+	//Mothership Health
+	image_handle_t heart_image =
+		tumDrawLoadImage("../resources/images/heart.png");
 
-            if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
-                pdTRUE) {
+	static char strdt[40] = { 0 };
 
-                xSemaphoreTake(ScreenLock, portMAX_DELAY);
-                tumDrawClear(Black); // Clear screen
-                tumDrawSetLoadedImageScale(ball_spritesheet_image,0.05);
-                tumDrawSetLoadedImageScale(mainlogo_image,0.1);
-                tumDrawLoadedImage(mainlogo_image,275,20);
+	while (1)
+	{
 
-                //Score drawing
-                if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-                    sprintf(strdt,"Score: %d",score.killscore);
-                    tumDrawText(strdt,150,
-                              450,
-                              Yellow);
-                    xSemaphoreGive(score.lock);
-                }
-                if (xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-                    sprintf(strdt,"AI = D%d",spaceShipStruct.difficulty+1);
-                    tumDrawText(strdt,250,450,Yellow);
+		if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
+			pdTRUE)
+		{
 
-                    if(spaceShipStruct.AI){
-                       sprintf(strdt,"AI MODE ON"); 
-                    }else{
-                        sprintf(strdt,"AI MODE OFF");
-                    }
-                    tumDrawText(strdt,350,450,Yellow);
-                    xSemaphoreGive(spaceShipStruct.lock);
-                }
-                // Drawing the line that separates health, score and FPS from the ship
-                tumDrawFilledBox(0,435,640,5,White);
+			xSemaphoreTake(ScreenLock, portMAX_DELAY);
+			tumDrawClear(Black);	// Clear screen
+			tumDrawSetLoadedImageScale(ball_spritesheet_image, 0.05);
+			tumDrawSetLoadedImageScale(mainlogo_image, 0.1);
+			tumDrawLoadedImage(mainlogo_image, 275, 20);
 
-                //Drawing the shelter blocks
-                for (int counter =0; counter <20;counter++){
-                    if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
-                        if(shelterBlocks[counter].alive==true){
-                            tumDrawFilledBox(shelterBlocks[counter].posX,shelterBlocks[counter].posY,25,2,White);
-                        }
-                        xSemaphoreGive(shelterBlocks[counter].lock);
-                    }
-                }   
+			//Score drawing
+			if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+			{
+				sprintf(strdt, "Score: %d", score.killscore);
+				tumDrawText(strdt, 150,
+					450,
+					Yellow);
+				xSemaphoreGive(score.lock);
+			}
+			if (xSemaphoreTake(spaceShipStruct.lock, portMAX_DELAY) == pdTRUE)
+			{
+				sprintf(strdt, "AI = D%d", spaceShipStruct.difficulty + 1);
+				tumDrawText(strdt, 250, 450, Yellow);
 
-                //Drawing Missiles fired by our mother ship and the ship itself and hearts
-                if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){	
-                    tumDrawLoadedImage(ball_spritesheet_image,spaceShipStruct.mothershipXPosition,
-                                        spaceShipStruct.mothershipYPosition);                  
-                        if (spaceShipStruct.attackState){
-                            tumDrawFilledBox(spaceShipStruct.spaceShipMissileX+10,spaceShipStruct.spaceShipMissileY,3,5,Red);
-                        }
-                    
-                    //Drawing the hearts
-                    tumDrawSetLoadedImageScale(heart_image,0.03);
-                    switch(spaceShipStruct.health){
-                        case 3:
-                            tumDrawLoadedImage(heart_image,10,450);
-                            tumDrawLoadedImage(heart_image,30,450);
-                            tumDrawLoadedImage(heart_image,50,450);
-                            break;
-                        case 2:
-                            tumDrawLoadedImage(heart_image,10,450);
-                            tumDrawLoadedImage(heart_image,30,450);
+				if (spaceShipStruct.AI)
+				{
+					sprintf(strdt, "AI MODE ON");
+				}
+				else
+				{
+					sprintf(strdt, "AI MODE OFF");
+				}
+				tumDrawText(strdt, 350, 450, Yellow);
+				xSemaphoreGive(spaceShipStruct.lock);
+			}
+			// Drawing the line that separates health, score and FPS from the ship
+			tumDrawFilledBox(0, 435, 640, 5, White);
 
-                            break;
-                        case 1: 
-                            tumDrawLoadedImage(heart_image,10,450);
-                            break;
-                        case 0:
-                            break;
-                    }
+			//Drawing the shelter blocks
+			for (int counter = 0; counter < 20; counter++)
+			{
+				if (xSemaphoreTake(shelterBlocks[counter].lock, 0) == pdTRUE)
+				{
+					if (shelterBlocks[counter].alive == true)
+					{
+						tumDrawFilledBox(shelterBlocks[counter].posX, shelterBlocks[counter].posY, 25, 2, White);
+					}
+					xSemaphoreGive(shelterBlocks[counter].lock);
+				}
+			}
 
+			//Drawing Missiles fired by our mother ship and the ship itself and hearts
+			if (xSemaphoreTake(spaceShipStruct.lock, 0) == pdTRUE)
+			{
+				tumDrawLoadedImage(ball_spritesheet_image, spaceShipStruct.mothershipXPosition,
+					spaceShipStruct.mothershipYPosition);
+				if (spaceShipStruct.attackState)
+				{
+					tumDrawFilledBox(spaceShipStruct.spaceShipMissileX + 10, spaceShipStruct.spaceShipMissileY, 3, 5, Red);
+				}
 
-                    xSemaphoreGive(spaceShipStruct.lock);
-                }
+				//Drawing the hearts
+				tumDrawSetLoadedImageScale(heart_image, 0.03);
+				switch (spaceShipStruct.health)
+				{
+					case 3:
+						tumDrawLoadedImage(heart_image, 10, 450);
+						tumDrawLoadedImage(heart_image, 30, 450);
+						tumDrawLoadedImage(heart_image, 50, 450);
+						break;
+					case 2:
+						tumDrawLoadedImage(heart_image, 10, 450);
+						tumDrawLoadedImage(heart_image, 30, 450);
 
-                // Drawing Missiles fired by the random aliens
+						break;
+					case 1:
+						tumDrawLoadedImage(heart_image, 10, 450);
+						break;
+					case 0:
+						break;
+				}
 
-                for (int c1=0;c1<8;c1++){
-                    if (xSemaphoreTake(alienMissilesStruct[c1].lock,portMAX_DELAY)==pdTRUE){
-                        if(alienMissilesStruct[c1].missileActive){
-                            tumDrawFilledBox(alienMissilesStruct[c1].missilePosX,alienMissilesStruct[c1].missilePosY,3,5,White);
-                        }
-                        xSemaphoreGive(alienMissilesStruct[c1].lock);
-                    }
+				xSemaphoreGive(spaceShipStruct.lock);
+			}
 
-                }
-                
+			// Drawing Missiles fired by the random aliens
 
-                //Drawing aliens
-                for (int c1=0;c1<5;c1++){
-                    for(int c2=0;c2<8;c2++){
-                        if(xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                            if(aliens_1[c1][c2].alive) {
-                                switch(c1){ 
-                                case 0:    
-                                tumDrawSetLoadedImageScale(alien1_image,0.03);    
-                                tumDrawLoadedImage(alien1_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);
-                                break;
+			for (int c1 = 0; c1 < 8; c1++)
+			{
+				if (xSemaphoreTake(alienMissilesStruct[c1].lock, portMAX_DELAY) == pdTRUE)
+				{
+					if (alienMissilesStruct[c1].missileActive)
+					{
+						tumDrawFilledBox(alienMissilesStruct[c1].missilePosX, alienMissilesStruct[c1].missilePosY, 3, 5, White);
+					}
+					xSemaphoreGive(alienMissilesStruct[c1].lock);
+				}
+			}
 
-                                case 1:
-                                tumDrawSetLoadedImageScale(alien2_image,0.03);    
-                                tumDrawLoadedImage(alien2_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);
-                                break;
+			//Drawing aliens
+			for (int c1 = 0; c1 < 5; c1++)
+			{
+				for (int c2 = 0; c2 < 8; c2++)
+				{
+					if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+					{
+						if (aliens_1[c1][c2].alive)
+						{
+							switch (c1)
+							{
+								case 0:
+									tumDrawSetLoadedImageScale(alien1_image, 0.03);
+									tumDrawLoadedImage(alien1_image, aliens_1[c1][c2].posX, aliens_1[c1][c2].posY);
+									break;
 
-                                case 2:
-                                tumDrawSetLoadedImageScale(alien3_image,0.047);    
-                                tumDrawLoadedImage(alien3_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);    
-                                break;
+								case 1:
+									tumDrawSetLoadedImageScale(alien2_image, 0.03);
+									tumDrawLoadedImage(alien2_image, aliens_1[c1][c2].posX, aliens_1[c1][c2].posY);
+									break;
 
-                                case 3:
-                                tumDrawSetLoadedImageScale(alien4_image,0.04);    
-                                tumDrawLoadedImage(alien4_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);    
-                                break;
+								case 2:
+									tumDrawSetLoadedImageScale(alien3_image, 0.047);
+									tumDrawLoadedImage(alien3_image, aliens_1[c1][c2].posX, aliens_1[c1][c2].posY);
+									break;
 
-                                case 4:
-                                tumDrawSetLoadedImageScale(alien5_image,0.055);    
-                                tumDrawLoadedImage(alien5_image,aliens_1[c1][c2].posX,aliens_1[c1][c2].posY);    
-                                break;
-                                }
-                            }
-                            xSemaphoreGive(aliens_1[c1][c2].lock);
-                        }
-                    }
-                }
+								case 3:
+									tumDrawSetLoadedImageScale(alien4_image, 0.04);
+									tumDrawLoadedImage(alien4_image, aliens_1[c1][c2].posX, aliens_1[c1][c2].posY);
+									break;
 
-                
+								case 4:
+									tumDrawSetLoadedImageScale(alien5_image, 0.055);
+									tumDrawLoadedImage(alien5_image, aliens_1[c1][c2].posX, aliens_1[c1][c2].posY);
+									break;
+							}
+						}
+						xSemaphoreGive(aliens_1[c1][c2].lock);
+					}
+				}
+			}
 
-                vDrawFPS();
-                xSemaphoreGive(ScreenLock);
-            }
+			vDrawFPS();
+			xSemaphoreGive(ScreenLock);
+		}
 
-        vTaskDelay(20);
+		vTaskDelay(20);
 
-      vCheckStateInput();
-    }
+		vCheckStateInput();
+	}
+}
+void vSpaceshipShoot()
+{
+
+	if (spaceShipStruct.attackState == false)
+	{
+		spaceShipStruct.attackState = true;
+		spaceShipStruct.spaceShipMissileX = spaceShipStruct.mothershipXPosition;
+		spaceShipStruct.spaceShipMissileY = spaceShipStruct.mothershipYPosition + 3;
+	}
+}
+
+void PositionIncrementation_Task(void *pvParameters)
+{
+	//Spaceship initialisation
+	char difficulty = 1;	// 0: easy 1: normal 2: hard
+	if (xSemaphoreTake(spaceShipStruct.lock, 0) == pdTRUE)
+	{
+		spaceShipStruct.attackState = false;
+		spaceShipStruct.AI = false;
+		spaceShipStruct.health = 3;
+		spaceShipStruct.mothershipXPosition = 310;
+		spaceShipStruct.mothershipYPosition = 400;
+
+		xSemaphoreGive(spaceShipStruct.lock);
+	}
+	bool state = true;
+	in_port_t port = UDP_RECEIVE_PORT;
+	while (1)
+	{
+		tumEventFetchEvents(FETCH_EVENT_BLOCK |
+			FETCH_EVENT_NO_GL_CHECK);
+		xGetButtonInput();	// Update global input
+		if (xSemaphoreTake(buttons.lock, 0) == pdTRUE)
+		{
+			if (buttons.buttons[KEYCODE(ESCAPE)])
+			{
+				// Equiv to SDL_SCANCODE_Q
+				exit(EXIT_SUCCESS);
+			}
+			xSemaphoreGive(buttons.lock);
+		}
+		if (xSemaphoreTake(spaceShipStruct.lock, 0) == pdTRUE)
+		{
+			if (xSemaphoreTake(buttons.lock, 0) == pdTRUE)
+			{
+
+				if (buttons.buttons[KEYCODE(RIGHT)])
+				{
+					if (spaceShipStruct.mothershipXPosition <= 600)
+					{
+						spaceShipStruct.mothershipXPosition += 7;
+					}
+				}
+				if (buttons.buttons[KEYCODE(LEFT)])
+				{
+					if (spaceShipStruct.mothershipXPosition >= 10)
+					{
+						spaceShipStruct.mothershipXPosition -= 7;
+					}
+				}
+				xSemaphoreGive(buttons.lock);
+			}
+
+			if (ButtonStateChangeCheck(KEYCODE(SPACE)) == true)
+			{
+				vSpaceshipShoot();
+			}
+
+			if (ButtonStateChangeCheck(KEYCODE(D)) == true)
+			{
+				difficulty = (difficulty + 1) % 3;
+				spaceShipStruct.difficulty = difficulty;
+				xQueueSend(DifficultyQueue, (void*) &difficulty, portMAX_DELAY);
+			}
+
+			if (ButtonStateChangeCheck(KEYCODE(A)) == true)
+			{
+				if (spaceShipStruct.AI)
+				{
+					if (udp_soc_receive == NULL)
+					{
+						printf("BIG ERROR\n");
+					}
+					aIOCloseConn(udp_soc_receive);
+					printf("UDP socket closed on port %d\n", port);
+					spaceShipStruct.AI = false;
+				}
+				else
+				{
+					spaceShipStruct.AI = true;
+					udp_soc_receive = aIOOpenUDPSocket(NULL, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
+					printf("UDP socket opened on port %d\n", port);
+				}
+			}
+			if (ButtonStateChangeCheck(KEYCODE(H)) == true) {}
+
+			if (spaceShipStruct.attackState)
+			{
+				xQueueSend(AttackStateQueue, &spaceShipStruct.attackState, 0);
+				spaceShipStruct.spaceShipMissileY -= 10;
+				if (spaceShipStruct.spaceShipMissileY <= 0)
+				{
+					spaceShipStruct.attackState = false;
+				}
+			}
+			else
+			{
+				xQueueSend(AttackStateQueue, &spaceShipStruct.attackState, 0);
+			}
+			if (spaceShipStruct.health <= 0)
+			{
+				spaceShipStruct.health = 3;
+				xQueueSend(StateQueue, &dead_state_signal, 0);
+			}
+			xSemaphoreGive(spaceShipStruct.lock);
+		}
+		xQueueSend(NextStateQueue, &state, 0);
+		vTaskDelay(20);
+	}
+	vCheckStateInput();
 
 }
 
+void vUDPInputCheckingTask()
+{
+	int lastpos;
+	signed int delta;
+	while (1)
+	{
 
-void vSpaceshipShoot(){
-  
-        
-    if (spaceShipStruct.attackState == false){
-        spaceShipStruct.attackState = true;
-        spaceShipStruct.spaceShipMissileX=spaceShipStruct.mothershipXPosition;
-        spaceShipStruct.spaceShipMissileY=spaceShipStruct.mothershipYPosition+3;
-    }
-  
+		static opponent_cmd_t current_key = NONE;
+
+		if (NextKeyQueue)
+		{
+			xQueueReceive(NextKeyQueue, &current_key, 0);
+		}
+		if (current_key)
+		{
+			if (xSemaphoreTake(spaceShipStruct.lock, portMAX_DELAY) == pdTRUE)
+			{
+				if (spaceShipStruct.AI)
+				{
+					lastpos = spaceShipStruct.mothershipXPosition;
+					if (current_key == INC)
+					{
+					 			//printf("INC\n"); for debugging purposes
+						if (spaceShipStruct.mothershipXPosition <= 500)
+						{
+							spaceShipStruct.mothershipXPosition += 7;
+							delta = lastpos - spaceShipStruct.mothershipXPosition;
+							xQueueSend(DeltaPosQueue, &delta, 0);
+						}
+						else if (spaceShipStruct.mothershipXPosition > 500 && spaceShipStruct.mothershipXPosition <= 590)
+						{
+							spaceShipStruct.mothershipXPosition += 7;
+							delta = lastpos - spaceShipStruct.mothershipXPosition;
+							xQueueSend(DeltaPosQueue, &delta, 0);
+						}
+						else if (spaceShipStruct.mothershipXPosition >= 590)
+						{
+							delta = 0;
+							xQueueSend(DeltaPosQueue, &delta, 0);
+						}
+					}
+					else if (current_key == DEC)
+					{
+					 			// printf("DEC\n"); for debugging purposes
+						if (spaceShipStruct.mothershipXPosition >= 10)
+						{
+							spaceShipStruct.mothershipXPosition -= 7;
+							delta = lastpos - spaceShipStruct.mothershipXPosition;
+							xQueueSend(DeltaPosQueue, &delta, 0);
+						}
+						else
+						{
+							delta = 0;
+							xQueueSend(DeltaPosQueue, &delta, 0);
+						}
+					}
+				}
+				xSemaphoreGive(spaceShipStruct.lock);
+			}
+		}
+
+		vTaskDelay(20);
+	}
 }
 
+void shelterCreatingTask()
+{
+	for (int counter = 0; counter < 20; counter++)
+	{
+		if (xSemaphoreTake(shelterBlocks[counter].lock, 0) == pdTRUE)
+		{
+			if (counter < 5)
+			{
+				shelterBlocks[counter].alive = true;
+				shelterBlocks[counter].posX = 50 + counter * 25;
+				shelterBlocks[counter].posY = 350;
+			}
+			if (counter >= 5 && counter < 10)
+			{
+				shelterBlocks[counter].alive = true;
+				shelterBlocks[counter].posX = counter * 25;
+				shelterBlocks[counter].posY = 300;
+			}
+			if (counter >= 10 && counter < 15)
+			{
+				shelterBlocks[counter].alive = true;
+				shelterBlocks[counter].posX = counter * 25;
+				shelterBlocks[counter].posY = 325;
+			}
+			if (counter >= 15)
+			{
+				shelterBlocks[counter].alive = true;
+				shelterBlocks[counter].posX = 20 + counter * 25;
+				shelterBlocks[counter].posY = 350;
+			}
+			xSemaphoreGive(shelterBlocks[counter].lock);
+		}
+	}
 
-void PositionIncrementation_Task(void *pvParameters){
-//Spaceship initialisation
-char difficulty = 1; // 0: easy 1: normal 2: hard
-if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
-    spaceShipStruct.attackState=false;
-    spaceShipStruct.AI=false;
-    spaceShipStruct.health=3;    
-    spaceShipStruct.mothershipXPosition=310;
-    spaceShipStruct.mothershipYPosition=400;   
+	while (1)
+	{
+		if (xSemaphoreTake(shelterCreate, portMAX_DELAY) == pdTRUE)
+		{
+			for (int counter = 0; counter < 20; counter++)
+			{
+				if (xSemaphoreTake(shelterBlocks[counter].lock, 0) == pdTRUE)
+				{
+					shelterBlocks[counter].alive = true;
+					xSemaphoreGive(shelterBlocks[counter].lock);
+				}
+			}
+		}
 
-    xSemaphoreGive(spaceShipStruct.lock);
-    }
-bool state = true;
-in_port_t port = UDP_RECEIVE_PORT;
-    while(1){
-                tumEventFetchEvents(FETCH_EVENT_BLOCK |
-                                    FETCH_EVENT_NO_GL_CHECK);
-                xGetButtonInput(); // Update global input
-                if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
-                        if (buttons.buttons[KEYCODE(ESCAPE)]) { // Equiv to SDL_SCANCODE_Q
-                            exit(EXIT_SUCCESS);
-                        }
-                    xSemaphoreGive(buttons.lock);
-                }
-                if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
-                    if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
+		vTaskDelay((TickType_t) 20);
+	}
+}
+void collisionDetectionTask()
+{
+	while (1)
+	{
+		if (xSemaphoreTake(spaceShipStruct.lock, portMAX_DELAY) == pdTRUE)
+		{
+			//to get the access to the missile's position
 
-                        if (buttons.buttons[KEYCODE(RIGHT)]) {
-                            if(spaceShipStruct.mothershipXPosition<=600){ 
-                            spaceShipStruct.mothershipXPosition+=7;
-                        }}
-                        if (buttons.buttons[KEYCODE(LEFT)]) { 
-                            if(spaceShipStruct.mothershipXPosition>=10){ 
-                            spaceShipStruct.mothershipXPosition-=7;
-                        }}
-                        xSemaphoreGive(buttons.lock);
-                    }
-                
-                    if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
-                            vSpaceshipShoot();}  
+			//Collision detection between the mothership's missile and the shelter blocks
+			for (int counter = 0; counter < 20; counter++)
+			{
+				if (xSemaphoreTake(shelterBlocks[counter].lock, portMAX_DELAY) == pdTRUE)
+				{
+					// to get access to the shelter's location and state
+					if (abs(spaceShipStruct.spaceShipMissileY - shelterBlocks[counter].posY) < 8 && abs(spaceShipStruct.spaceShipMissileX - shelterBlocks[counter].posX) < 15 &&
+						shelterBlocks[counter].alive)
+					{
+						shelterBlocks[counter].alive = false;
+						spaceShipStruct.attackState = false;
+					}
+					xSemaphoreGive(shelterBlocks[counter].lock);
+				}
+			}
 
-                    if (ButtonStateChangeCheck(KEYCODE(D))==true){
-                        difficulty = (difficulty + 1) % 3;
-                        spaceShipStruct.difficulty=difficulty;
-                        xQueueSend(DifficultyQueue, (void *) &difficulty, portMAX_DELAY);}  
+			//Collision detection between the mothership's missile and aliens 
+			for (int c1 = 0; c1 < 5; c1++)
+			{
+				for (int c2 = 0; c2 < 8; c2++)
+				{
+					if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+					{
+						if (abs(spaceShipStruct.spaceShipMissileY - aliens_1[c1][c2].posY) < 4 && abs(spaceShipStruct.spaceShipMissileX - aliens_1[c1][c2].posX) < 13 &&
+							aliens_1[c1][c2].alive && spaceShipStruct.attackState == true)
+						{
+							aliens_1[c1][c2].alive = false;
+							spaceShipStruct.attackState = false;
+							aliens_1[c1][c2].active = false;
+							if (c1 != 0)
+							{
+								aliens_1[c1 - 1][c2].active = true;
+							}
 
-                    if (ButtonStateChangeCheck(KEYCODE(A))==true){
-                        if(spaceShipStruct.AI){	 
-                            if (udp_soc_receive==NULL){printf("BIG ERROR\n");}                          
-                            aIOCloseConn(udp_soc_receive);
-                            printf("UDP socket closed on port %d\n", port);
-                            spaceShipStruct.AI=false;                            
-                        }
-                        else{
-                            spaceShipStruct.AI=true;
-                            udp_soc_receive = aIOOpenUDPSocket(NULL, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
-                            printf("UDP socket opened on port %d\n", port);
-                        }
-                    }
-                    if (ButtonStateChangeCheck(KEYCODE(H))==true){
-                        
-                    }
-                        
-                    if (spaceShipStruct.attackState){
-                        xQueueSend(AttackStateQueue,&spaceShipStruct.attackState,0);
-                        spaceShipStruct.spaceShipMissileY-=10;                    
-                        if (spaceShipStruct.spaceShipMissileY<=0){spaceShipStruct.attackState=false;}
-                    }else{xQueueSend(AttackStateQueue,&spaceShipStruct.attackState,0);}
-                    if(spaceShipStruct.health<=0){
-                        spaceShipStruct.health=3;
-                        xQueueSend(StateQueue, &dead_state_signal, 0);
-                    }
-                    xSemaphoreGive(spaceShipStruct.lock);
-                }
-                xQueueSend(NextStateQueue, &state, 0);
-                vTaskDelay(20);
-            }
-            vCheckStateInput();
+							if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+							{
+								score.score++;
+								switch (c1)
+								{
+									case 0:
+										score.killscore += 50;
+										break;
+									case 1:
+										score.killscore += 40;
+										break;
+									case 2:
+										score.killscore += 30;
+										break;
+									case 3:
+										score.killscore += 20;
+										break;
+									case 4:
+										score.killscore += 10;
+										break;
+								}
+								xSemaphoreGive(score.lock);
+							}
+						}
+						xSemaphoreGive(aliens_1[c1][c2].lock);
+					}
+				}
+			}
 
+			xSemaphoreGive(spaceShipStruct.lock);
+		}
+
+		// Collision detection between the alien Missiles and shelter
+		for (int counter = 0; counter < 20; counter++)
+		{
+			if (xSemaphoreTake(shelterBlocks[counter].lock, portMAX_DELAY) == pdTRUE)
+			{
+				// to get access to the shelter's location and state
+				for (int x = 0; x < 8; x++)
+				{
+					xSemaphoreTake(alienMissilesStruct[x].lock, portMAX_DELAY);
+					if (abs(alienMissilesStruct[x].missilePosY - shelterBlocks[counter].posY) < 8 && abs(alienMissilesStruct[x].missilePosX - shelterBlocks[counter].posX) < 20 &&
+						shelterBlocks[counter].alive && alienMissilesStruct[x].missileActive)
+					{
+						shelterBlocks[counter].alive = false;
+						alienMissilesStruct[x].missileActive = false;
+					}
+					xSemaphoreGive(alienMissilesStruct[x].lock);
+				}
+				xSemaphoreGive(shelterBlocks[counter].lock);
+			}
+		}
+
+		// Collision detection between the aliens and shelter
+		for (int counter = 0; counter < 20; counter++)
+		{
+			if (xSemaphoreTake(shelterBlocks[counter].lock, portMAX_DELAY) == pdTRUE)
+			{
+				// to get access to the shelter's location and state
+
+				for (int c1 = 0; c1 < 5; c1++)
+				{
+					for (int c2 = 0; c2 < 8; c2++)
+					{
+						if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+						{
+							if (abs(aliens_1[c1][c2].posY - shelterBlocks[counter].posY) < 8 && abs(aliens_1[c1][c2].posX - shelterBlocks[counter].posX) < 20 &&
+								shelterBlocks[counter].alive && aliens_1[c1][c2].alive)
+							{
+								shelterBlocks[counter].alive = false;
+							}
+
+							xSemaphoreGive(aliens_1[c1][c2].lock);
+						}
+					}
+				}
+				xSemaphoreGive(shelterBlocks[counter].lock);
+			}
+		}
+
+		// Collision detection between the alien Missiles and the mothership 
+		if (xSemaphoreTake(spaceShipStruct.lock, portMAX_DELAY) == pdTRUE)
+		{
+			for (int counter = 0; counter < 8; counter++)
+			{
+				if (xSemaphoreTake(alienMissilesStruct[counter].lock, portMAX_DELAY) == pdTRUE)
+				{
+					if (abs(alienMissilesStruct[counter].missilePosY - 400) < 15 && abs(alienMissilesStruct[counter].missilePosX - spaceShipStruct.mothershipXPosition) < 16 && alienMissilesStruct[counter].missileActive)
+					{
+						if (spaceShipStruct.godmode == false)
+						{
+							spaceShipStruct.health--;
+						}
+						alienMissilesStruct[counter].missileActive = false;
+					}
+					xSemaphoreGive(alienMissilesStruct[counter].lock);
+				}
+			}
+			xSemaphoreGive(spaceShipStruct.lock);
+		}
+
+		//collision detection between aliens and shelter blocks    
+
+		// ALIEN bottom descent detection
+		for (int c1 = 0; c1 < 5; c1++)
+		{
+			for (int c2 = 0; c2 < 8; c2++)
+			{
+				if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+				{
+					if (aliens_1[c1][c2].posY >= 400)
+					{
+						xQueueSend(StateQueue, &dead_state_signal, 0);
+					}
+					xSemaphoreGive(aliens_1[c1][c2].lock);
+				}
+			}
+		}
+
+		vTaskDelay((TickType_t) 1);
+	}
 }
 
+void alienCreationTask()
+{
+	// Score initialisation
+	if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+	{
+		score.killscore = 0;
+		score.score = 0;
+		score.level = 0;
+		xSemaphoreGive(score.lock);
+	}
 
+	//alien variable initialisation
+	for (int c1 = 0; c1 < 5; c1++)
+	{
+		for (int c2 = 0; c2 < 8; c2++)
+		{
+			if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+			{
+				aliens_1[c1][c2].active = false;
+				aliens_1[c1][c2].alive = true;
+				switch (c1)
+				{
+					case 0:
+						aliens_1[c1][c2].posX = 90 + c2 * 60;
+						aliens_1[c1][c2].posY = 80;
+						break;
+					case 1:
+						aliens_1[c1][c2].posX = 90 + c2 * 60;
+						aliens_1[c1][c2].posY = 105;
+						break;
+					case 2:
+						aliens_1[c1][c2].posX = 90 + c2 * 60;
+						aliens_1[c1][c2].posY = 130;
+						break;
+					case 3:
+						aliens_1[c1][c2].posX = 90 + c2 * 60;
+						aliens_1[c1][c2].posY = 155;
+						break;
+					case 4:
+						aliens_1[c1][c2].posX = 90 + c2 * 60;
+						aliens_1[c1][c2].posY = 180;
+						aliens_1[c1][c2].active = true;
+						break;
+				}
 
-void vUDPInputCheckingTask(){
-int lastpos; 
-signed int delta;
-    while(1){
+				xSemaphoreGive(aliens_1[c1][c2].lock);
+			}
+		}
+	}
+	while (1)
+	{
+		if (xSemaphoreTake(aliensCreate, 0) == pdTRUE)
+		{
+			for (int c1 = 0; c1 < 5; c1++)
+			{
+				for (int c2 = 0; c2 < 8; c2++)
+				{
+					if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+					{
+						aliens_1[c1][c2].active = false;
+						aliens_1[c1][c2].alive = true;
+						switch (c1)
+						{
+							case 0:
+								aliens_1[c1][c2].posX = 90 + c2 * 60;
+								aliens_1[c1][c2].posY = 80;
+								break;
+							case 1:
+								aliens_1[c1][c2].posX = 90 + c2 * 60;
+								aliens_1[c1][c2].posY = 105;
+								break;
+							case 2:
+								aliens_1[c1][c2].posX = 90 + c2 * 60;
+								aliens_1[c1][c2].posY = 130;
+								break;
+							case 3:
+								aliens_1[c1][c2].posX = 90 + c2 * 60;
+								aliens_1[c1][c2].posY = 155;
+								break;
+							case 4:
+								aliens_1[c1][c2].posX = 90 + c2 * 60;
+								aliens_1[c1][c2].posY = 180;
+								aliens_1[c1][c2].active = true;
+								break;
+						}
 
-                static opponent_cmd_t current_key = NONE;
+						xSemaphoreGive(aliens_1[c1][c2].lock);
+					}
+				}
+			}
+		}
+		vTaskDelay((TickType_t) 20);
+	}
+}
+void vAlienShoot() {}
+void AlienShootingTask()
+{
+	int randomNumber;
+	while (1)
+	{
+		if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+		{
+			randomNumber = rand() % (7 + 1 - 0) + 0;
+			xSemaphoreGive(score.lock);
+		}
+		for (int c1 = 0; c1 < 5; c1++)
+		{
+			if (xSemaphoreTake(aliens_1[c1][randomNumber].lock, portMAX_DELAY) == pdTRUE)
+			{
 
-                if (NextKeyQueue) {
-                    xQueueReceive(NextKeyQueue, &current_key, 0);
-                }
-                if (current_key){ 
-                    if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-                        if(spaceShipStruct.AI){
-                            lastpos=spaceShipStruct.mothershipXPosition;
-                            if (current_key == INC) {
-                                //printf("INC\n"); for debugging purposes
-                                if(spaceShipStruct.mothershipXPosition<=500){ 
-                                    spaceShipStruct.mothershipXPosition+=7;
-                                    delta= lastpos - spaceShipStruct.mothershipXPosition;
-                                    xQueueSend(DeltaPosQueue,&delta,0);
-                                }else if(spaceShipStruct.mothershipXPosition>500 && spaceShipStruct.mothershipXPosition<=590){ 
-                                    spaceShipStruct.mothershipXPosition+=7;
-                                    delta= lastpos - spaceShipStruct.mothershipXPosition;
-                                    xQueueSend(DeltaPosQueue,&delta,0);
-                                }else if(spaceShipStruct.mothershipXPosition>=590){
-                                    delta =0;
-                                    xQueueSend(DeltaPosQueue,&delta,0);
-                                } 
-                            }
-                            else if (current_key == DEC) {
-                               // printf("DEC\n"); for debugging purposes
-                                if(spaceShipStruct.mothershipXPosition>=10){ 
-                                    spaceShipStruct.mothershipXPosition-=7;
-                                    delta= lastpos - spaceShipStruct.mothershipXPosition;
-                                    xQueueSend(DeltaPosQueue,&delta,0);
-                                }else {delta= 0;
-                                    xQueueSend(DeltaPosQueue,&delta,0);}                
-                            }  
-                        }
-                    xSemaphoreGive(spaceShipStruct.lock);
-                    }
-                }
-
-
-
-
-        vTaskDelay(20);
-    }
-
+				if (aliens_1[c1][randomNumber].alive && aliens_1[c1][randomNumber].active)
+				{
+					if (xSemaphoreTake(alienMissilesStruct[randomNumber].lock, portMAX_DELAY) == pdTRUE)
+					{
+						if (alienMissilesStruct[randomNumber].missileActive == false)
+						{
+							alienMissilesStruct[randomNumber].missileActive = true;
+							alienMissilesStruct[randomNumber].missilePosX = aliens_1[c1][randomNumber].posX;
+							alienMissilesStruct[randomNumber].missilePosY = aliens_1[c1][randomNumber].posY;
+						}
+						xSemaphoreGive(alienMissilesStruct[randomNumber].lock);
+					}
+				}
+				xSemaphoreGive(aliens_1[c1][randomNumber].lock);
+			}
+		}
+		vTaskDelay(pdMS_TO_TICKS(3000));
+	}
 }
 
+void AlienMissiletrackingTask()
+{
 
-void shelterCreatingTask(){
-    for (int counter =0; counter <20;counter++){
-        if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
-        if (counter<5){     
-        shelterBlocks[counter].alive=true;    
-        shelterBlocks[counter].posX=50 + counter*25;
-        shelterBlocks[counter].posY=350;
-        }
-        if (counter>=5 && counter< 10){
-        shelterBlocks[counter].alive=true;    
-        shelterBlocks[counter].posX= counter*25;
-        shelterBlocks[counter].posY=300;
-        }
-        if (counter>=10 && counter< 15){
-        shelterBlocks[counter].alive=true;    
-        shelterBlocks[counter].posX= counter*25;
-        shelterBlocks[counter].posY=325;
-        }
-        if (counter>=15){
-        shelterBlocks[counter].alive=true;    
-        shelterBlocks[counter].posX=20+counter*25;
-        shelterBlocks[counter].posY=350;
-        }
-        xSemaphoreGive(shelterBlocks[counter].lock);
-        }
-    }
-
-
-    while(1){
-        if (xSemaphoreTake(shelterCreate,portMAX_DELAY)==pdTRUE){
-            for (int counter =0; counter <20;counter++){
-                if (xSemaphoreTake(shelterBlocks[counter].lock,0)==pdTRUE){
-                shelterBlocks[counter].alive=true;    
-                xSemaphoreGive(shelterBlocks[counter].lock);
-                }   
-            }
-        }
-                
-                
-            
-        vTaskDelay((TickType_t)20);
-    }
-}
-void collisionDetectionTask(){
-    while(1){
-        if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){ //to get the access to the missile's position
-
-            //Collision detection between the mothership's missile and the shelter blocks
-            for (int counter =0; counter <20;counter++){
-                if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
-                    if (abs(spaceShipStruct.spaceShipMissileY- shelterBlocks[counter].posY)<8 && abs(spaceShipStruct.spaceShipMissileX -shelterBlocks[counter].posX)<15 && 
-                    shelterBlocks[counter].alive) {
-                        shelterBlocks[counter].alive=false;
-                        spaceShipStruct.attackState=false;
-                    }
-                xSemaphoreGive(shelterBlocks[counter].lock);    
-                }
-            }
-
-            //Collision detection between the mothership's missile and aliens 
-            for(int c1=0;c1<5;c1++){
-                for(int c2=0;c2<8;c2++){
-                    if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                        if (abs(spaceShipStruct.spaceShipMissileY- aliens_1[c1][c2].posY)<4 && abs(spaceShipStruct.spaceShipMissileX -aliens_1[c1][c2].posX)<13 && 
-                            aliens_1[c1][c2].alive && spaceShipStruct.attackState==true) {
-                                aliens_1[c1][c2].alive=false;
-                                spaceShipStruct.attackState=false;
-                                aliens_1[c1][c2].active=false;
-                                if (c1 != 0){ 
-                                aliens_1[c1-1][c2].active=true;
-                                }
-                                
-                                if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-                                    score.score++;
-                                    switch(c1){ 
-                                    case 0:
-                                        score.killscore+=50;
-                                        break;
-                                    case 1: 
-                                        score.killscore+=40;
-                                        break;
-                                    case 2:
-                                        score.killscore+=30;
-                                        break;
-                                    case 3:
-                                        score.killscore+=20;
-                                        break; 
-                                    case 4:
-                                        score.killscore+=10;
-                                        break;    
-                                    }
-                                    xSemaphoreGive(score.lock);
-                                }
-                            }
-                        xSemaphoreGive(aliens_1[c1][c2].lock);
-                    }
-                }
-            }
-
-        xSemaphoreGive(spaceShipStruct.lock);
-
-        } 
-        
-        // Collision detection between the alien Missiles and shelter
-            for (int counter =0; counter <20;counter++){
-                if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
-                    for(int x=0; x<8; x++){ 
-                        xSemaphoreTake(alienMissilesStruct[x].lock,portMAX_DELAY);
-                        if (abs(alienMissilesStruct[x].missilePosY- shelterBlocks[counter].posY)<8 && abs(alienMissilesStruct[x].missilePosX -shelterBlocks[counter].posX)<20 && 
-                        shelterBlocks[counter].alive && alienMissilesStruct[x].missileActive) {
-                            shelterBlocks[counter].alive=false;
-                            alienMissilesStruct[x].missileActive=false;
-                        }
-                        xSemaphoreGive(alienMissilesStruct[x].lock);
-                    }    
-                    xSemaphoreGive(shelterBlocks[counter].lock);    
-                }
-            }        
-
-                // Collision detection between the aliens and shelter
-            for (int counter =0; counter <20;counter++){
-                if(xSemaphoreTake(shelterBlocks[counter].lock,portMAX_DELAY)==pdTRUE){// to get access to the shelter's location and state
-
-                    for(int c1= 0;c1<5;c1++){
-                        for (int c2=0;c2<8;c2++){
-                            if(xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                              if (abs(aliens_1[c1][c2].posY- shelterBlocks[counter].posY)<8 && abs(aliens_1[c1][c2].posX -shelterBlocks[counter].posX)<20 && 
-                                    shelterBlocks[counter].alive && aliens_1[c1][c2].alive){
-                                    shelterBlocks[counter].alive=false;
-                                 } 
-                    
-                              xSemaphoreGive(aliens_1[c1][c2].lock);
-                            }
-                        }
-                    }
-                    xSemaphoreGive(shelterBlocks[counter].lock);    
-                }
-            }        
-
-
-        // Collision detection between the alien Missiles and the mothership 
-        if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-            for(int counter=0; counter<8;counter++){
-                if(xSemaphoreTake(alienMissilesStruct[counter].lock,portMAX_DELAY)==pdTRUE){
-                       if (abs(alienMissilesStruct[counter].missilePosY- 400)<15 && abs(alienMissilesStruct[counter].missilePosX -spaceShipStruct.mothershipXPosition)<16 && alienMissilesStruct[counter].missileActive) {                           
-                           if(spaceShipStruct.godmode==false){ 
-                                spaceShipStruct.health--;
-                                }
-                            alienMissilesStruct[counter].missileActive=false;               
-
-                        } 
-                   xSemaphoreGive(alienMissilesStruct[counter].lock); 
-                }
-            }
-            xSemaphoreGive(spaceShipStruct.lock);    
-        }
-
-        //collision detection between aliens and shelter blocks    
-
-        // ALIEN bottom descent detection
-        for(int c1 =0 ; c1 < 5 ; c1++){
-            for(int c2 = 0; c2 <8 ;c2++){
-                if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                     if(aliens_1[c1][c2].posY>=400){
-                      xQueueSend(StateQueue, &dead_state_signal, 0);}
-                xSemaphoreGive(aliens_1[c1][c2].lock);
-                }
-            }
-        }    
-
-        
-        vTaskDelay((TickType_t)1);
-
-    }
+	while (1)
+	{
+		for (int c1 = 0; c1 < 8; c1++)
+		{
+			if (xSemaphoreTake(alienMissilesStruct[c1].lock, portMAX_DELAY) == pdTRUE)
+			{
+				if (alienMissilesStruct[c1].missileActive)
+				{
+					alienMissilesStruct[c1].missilePosY++;
+					if (alienMissilesStruct[c1].missilePosY > 500)
+					{
+						alienMissilesStruct[c1].missileActive = false;
+					}
+				}
+				xSemaphoreGive(alienMissilesStruct[c1].lock);
+			}
+		}
+		vTaskDelay((TickType_t) 20);
+	}
 }
 
-void alienCreationTask(){
-    // Score initialisation
-    if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-        score.killscore=0;
-        score.score=0;
-        score.level=0;
-        xSemaphoreGive(score.lock);
-    }
-
-    //alien variable initialisation
-    for(int c1 =0 ; c1 < 5 ; c1++){
-        for(int c2 = 0; c2 <8 ;c2++){
-            if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                aliens_1[c1][c2].active=false;
-                aliens_1[c1][c2].alive=true;
-                switch (c1){
-                                case 0:
-                                aliens_1[c1][c2].posX=90+ c2*60;
-                                aliens_1[c1][c2].posY=80;
-                                break;
-                                case 1:
-                                aliens_1[c1][c2].posX= 90+ c2*60;
-                                aliens_1[c1][c2].posY=105;
-                                break;
-                                case 2:
-                                aliens_1[c1][c2].posX= 90+ c2*60;
-                                aliens_1[c1][c2].posY=130;
-                                break;
-                                case 3:
-                                aliens_1[c1][c2].posX= 90+ c2*60;
-                                aliens_1[c1][c2].posY=155;
-                                break;
-                                case 4:
-                                aliens_1[c1][c2].posX=90+ c2*60;
-                                aliens_1[c1][c2].posY=180;
-                                aliens_1[c1][c2].active=true;
-                                break;
-                }
-                
-                xSemaphoreGive(aliens_1[c1][c2].lock);
-            }
-
-        }
-    }
-    while(1){
-        if(xSemaphoreTake(aliensCreate,0)==pdTRUE){
-                for(int c1 =0 ; c1 < 5 ; c1++){
-                    for(int c2 = 0; c2 <8 ;c2++){
-                        if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                            aliens_1[c1][c2].active=false;
-                            aliens_1[c1][c2].alive=true;
-                            switch (c1){
-                                case 0:
-                                aliens_1[c1][c2].posX=90+ c2*60;
-                                aliens_1[c1][c2].posY=80;
-                                break;
-                                case 1:
-                                aliens_1[c1][c2].posX= 90+ c2*60;
-                                aliens_1[c1][c2].posY=105;
-                                break;
-                                case 2:
-                                aliens_1[c1][c2].posX= 90+ c2*60;
-                                aliens_1[c1][c2].posY=130;
-                                break;
-                                case 3:
-                                aliens_1[c1][c2].posX= 90+ c2*60;
-                                aliens_1[c1][c2].posY=155;
-                                break;
-                                case 4:
-                                aliens_1[c1][c2].posX=90+ c2*60;
-                                aliens_1[c1][c2].posY=180;
-                                aliens_1[c1][c2].active=true;
-                                break;   
-                            }
-
-                        xSemaphoreGive(aliens_1[c1][c2].lock);
-                        }
-
-                    }
-                }
-        }
-        vTaskDelay((TickType_t)20);
-    }
+typedef struct aliensHorizontalMotionStruct_t
+{
+	int posXCounter;
+	bool motiontoggle;
+	bool excessMotionToggle;
+	SemaphoreHandle_t lock;
 }
-void vAlienShoot(){
-
-}
-void AlienShootingTask(){
-    int randomNumber;
-    while(1){
-            if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-                randomNumber= rand() % (7 + 1 - 0) + 0;
-                xSemaphoreGive(score.lock);
-            }
-            for(int c1=0;c1<5;c1++){
-                if (xSemaphoreTake(aliens_1[c1][randomNumber].lock,portMAX_DELAY)==pdTRUE){
-
-                
-                    if (aliens_1[c1][randomNumber].alive && aliens_1[c1][randomNumber].active){
-                        if(xSemaphoreTake(alienMissilesStruct[randomNumber].lock,portMAX_DELAY)==pdTRUE){
-                            if (alienMissilesStruct[randomNumber].missileActive==false){
-                            alienMissilesStruct[randomNumber].missileActive=true;
-                            alienMissilesStruct[randomNumber].missilePosX=aliens_1[c1][randomNumber].posX;
-                            alienMissilesStruct[randomNumber].missilePosY=aliens_1[c1][randomNumber].posY;
-                            }
-                            xSemaphoreGive(alienMissilesStruct[randomNumber].lock);
-                        }
-                    }
-                xSemaphoreGive(aliens_1[c1][randomNumber].lock);    
-                }
-            } 
-            vTaskDelay(pdMS_TO_TICKS(3000));
-    }     
-}
-
-void AlienMissiletrackingTask(){
-
-    while(1){
-        for(int c1=0;c1<8;c1++){
-            if(xSemaphoreTake(alienMissilesStruct[c1].lock,portMAX_DELAY)==pdTRUE){
-                if(alienMissilesStruct[c1].missileActive){
-                    alienMissilesStruct[c1].missilePosY++;
-                    if (alienMissilesStruct[c1].missilePosY>500){
-                        alienMissilesStruct[c1].missileActive=false;
-                    }
-                }
-                xSemaphoreGive(alienMissilesStruct[c1].lock); 
-            }
-        }
-        vTaskDelay((TickType_t)20);
-    }
-}
-
-typedef struct aliensHorizontalMotionStruct_t{
-    int posXCounter;
-    bool motiontoggle;
-    bool excessMotionToggle;
-    SemaphoreHandle_t lock;
-}aliensHorizontalMotionStruct_t;
+aliensHorizontalMotionStruct_t;
 aliensHorizontalMotionStruct_t aliensHorizontalMotionStruct;
 
-void AliensMovingOneTask(){
-    int excessMotion;
-    if (xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){
-        aliensHorizontalMotionStruct.posXCounter=0;
-        aliensHorizontalMotionStruct.motiontoggle=false;
-        aliensHorizontalMotionStruct.excessMotionToggle=false;
-        xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-    }
-    while(1){
-       if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
-           if(aliensHorizontalMotionStruct.motiontoggle==false){ 
-                for (int c1 =0;c1<5;c1++){
-                    for(int c2 = 0; c2<8; c2++){
-                        if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                            switch (c1) {
-                                case 0: aliens_1[c1][c2].posX+=1;
-                                        break;
-                                case 1:aliens_1[c1][c2].posX-=1;
-                                       break;
-                                case 2:aliens_1[c1][c2].posX+=1;
-                                       break;
-                                case 3:aliens_1[c1][c2].posX-=1;
-                                       break;
-                                case 4:aliens_1[c1][c2].posX+=1;
-                                       break;
-                            }
-                            //aliens_1[c1][c2].posX+=1 ;
-                            xSemaphoreGive(aliens_1[c1][c2].lock);
-                        }
-                        
-                    }
-                }
-                if (aliensHorizontalMotionStruct.excessMotionToggle==false){
-                    excessMotion=20;                    
-                }else {excessMotion=40;}
+void AliensMovingOneTask()
+{
+	int excessMotion;
+	if (xSemaphoreTake(aliensHorizontalMotionStruct.lock, portMAX_DELAY) == pdTRUE)
+	{
+		aliensHorizontalMotionStruct.posXCounter = 0;
+		aliensHorizontalMotionStruct.motiontoggle = false;
+		aliensHorizontalMotionStruct.excessMotionToggle = false;
+		xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+	}
+	while (1)
+	{
+		if (xSemaphoreTake(aliensHorizontalMotionStruct.lock, portMAX_DELAY) == pdTRUE)
+		{
+			if (aliensHorizontalMotionStruct.motiontoggle == false)
+			{
+				for (int c1 = 0; c1 < 5; c1++)
+				{
+					for (int c2 = 0; c2 < 8; c2++)
+					{
+						if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+						{
+							switch (c1)
+							{
+								case 0:
+									aliens_1[c1][c2].posX += 1;
+									break;
+								case 1:
+									aliens_1[c1][c2].posX -= 1;
+									break;
+								case 2:
+									aliens_1[c1][c2].posX += 1;
+									break;
+								case 3:
+									aliens_1[c1][c2].posX -= 1;
+									break;
+								case 4:
+									aliens_1[c1][c2].posX += 1;
+									break;
+							}
+							//aliens_1[c1][c2].posX+=1 ;
+							xSemaphoreGive(aliens_1[c1][c2].lock);
+						}
+					}
+				}
+				if (aliensHorizontalMotionStruct.excessMotionToggle == false)
+				{
+					excessMotion = 20;
+				}
+				else
+				{
+					excessMotion = 40;
+				}
 
-                aliensHorizontalMotionStruct.posXCounter +=1 ;
-                if (aliensHorizontalMotionStruct.posXCounter >=excessMotion){
-                    aliensHorizontalMotionStruct.posXCounter=0;
-                    aliensHorizontalMotionStruct.motiontoggle=true;
-                    aliensHorizontalMotionStruct.excessMotionToggle=true;
-                }
-            }
-            xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-        }
-        vTaskDelay((TickType_t)40);
-    }       
+				aliensHorizontalMotionStruct.posXCounter += 1;
+				if (aliensHorizontalMotionStruct.posXCounter >= excessMotion)
+				{
+					aliensHorizontalMotionStruct.posXCounter = 0;
+					aliensHorizontalMotionStruct.motiontoggle = true;
+					aliensHorizontalMotionStruct.excessMotionToggle = true;
+				}
+			}
+			xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+		}
+		vTaskDelay((TickType_t) 40);
+	}
 }
 
-void AliensMovingTwoTask(){
-    while(1){
-       if(xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY)==pdTRUE){ 
-           if(aliensHorizontalMotionStruct.motiontoggle==true){ 
-                for (int c1 =0;c1<5;c1++){
-                    for(int c2 = 0; c2<8; c2++){
-                        if (xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                            switch (c1) {
-                                case 0: aliens_1[c1][c2].posX-=1;
-                                        break;
-                                case 1:aliens_1[c1][c2].posX+=1;
-                                       break;
-                                case 2:aliens_1[c1][c2].posX-=1;
-                                       break;
-                                case 3:aliens_1[c1][c2].posX+=1;
-                                       break;
-                                case 4:aliens_1[c1][c2].posX-=1;
-                                       break;
-                            }
-                            
-                            xSemaphoreGive(aliens_1[c1][c2].lock);
-                        }
-                    }
-                }
-                aliensHorizontalMotionStruct.posXCounter +=1;
-                if (aliensHorizontalMotionStruct.posXCounter >=40){
-                    aliensHorizontalMotionStruct.posXCounter=0;
-                    aliensHorizontalMotionStruct.motiontoggle=false;
-                }
-            }
-            xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-        }
-        vTaskDelay((TickType_t)40);
-    }       
+void AliensMovingTwoTask()
+{
+	while (1)
+	{
+		if (xSemaphoreTake(aliensHorizontalMotionStruct.lock, portMAX_DELAY) == pdTRUE)
+		{
+			if (aliensHorizontalMotionStruct.motiontoggle == true)
+			{
+				for (int c1 = 0; c1 < 5; c1++)
+				{
+					for (int c2 = 0; c2 < 8; c2++)
+					{
+						if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+						{
+							switch (c1)
+							{
+								case 0:
+									aliens_1[c1][c2].posX -= 1;
+									break;
+								case 1:
+									aliens_1[c1][c2].posX += 1;
+									break;
+								case 2:
+									aliens_1[c1][c2].posX -= 1;
+									break;
+								case 3:
+									aliens_1[c1][c2].posX += 1;
+									break;
+								case 4:
+									aliens_1[c1][c2].posX -= 1;
+									break;
+							}
+
+							xSemaphoreGive(aliens_1[c1][c2].lock);
+						}
+					}
+				}
+				aliensHorizontalMotionStruct.posXCounter += 1;
+				if (aliensHorizontalMotionStruct.posXCounter >= 40)
+				{
+					aliensHorizontalMotionStruct.posXCounter = 0;
+					aliensHorizontalMotionStruct.motiontoggle = false;
+				}
+			}
+			xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+		}
+		vTaskDelay((TickType_t) 40);
+	}
 }
-void vAlienDescentTask(){
-    while(1){
-        if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){ 
-            for (int c1 =0;c1<5;c1++){
-                    for(int c2=0;c2<8;c2++){
-                         if(xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                            aliens_1[c1][c2].posY+= 0.05+(0.01* score.level)+(0.001* score.score);
-   
-                            xSemaphoreGive(aliens_1[c1][c2].lock);
-                         }
-                         
-                    }
+void vAlienDescentTask()
+{
+	while (1)
+	{
+		if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+		{
+			for (int c1 = 0; c1 < 5; c1++)
+			{
+				for (int c2 = 0; c2 < 8; c2++)
+				{
+					if (xSemaphoreTake(aliens_1[c1][c2].lock, portMAX_DELAY) == pdTRUE)
+					{
+						aliens_1[c1][c2].posY += 0.05 + (0.01 *score.level) + (0.001 *score.score);
 
-                }
-        xSemaphoreGive(score.lock);
-        }
-        vTaskDelay(40);
-    }
+						xSemaphoreGive(aliens_1[c1][c2].lock);
+					}
+				}
+			}
+			xSemaphoreGive(score.lock);
+		}
+		vTaskDelay(40);
+	}
 }
-void LevelIncreasingTask(){
-    while(1){
-        //Check if we reached a multiple of 50 so that we could re draw the aliens and later on change their speeds accordingly
-        if (xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-            if (score.score%40==0 && score.score != 0){
-                score.level++;
-                xSemaphoreTake(aliensHorizontalMotionStruct.lock,portMAX_DELAY);
-                aliensHorizontalMotionStruct.excessMotionToggle=false;
-                xSemaphoreGive(aliensHorizontalMotionStruct.lock);
-                xSemaphoreGive(aliensCreate);
-                xSemaphoreGive(shelterCreate);
-                score.score=0;
-            }
-            xSemaphoreGive(score.lock);
-        }
-        vTaskDelay((TickType_t)20);
-    }
-}
-
-
-
-
-void vPauseState(void *pvParameters){
-    image_handle_t pause_image =
-    tumDrawLoadImage("../resources/images/pause.png");        
-    tumDrawSetLoadedImageScale(pause_image,0.3);    
-    static char str[20] = { 0 };
-    bool state = false;
-    while(1)
-    {
-    tumEventFetchEvents(FETCH_EVENT_BLOCK |
-                                FETCH_EVENT_NO_GL_CHECK);
-    xGetButtonInput(); // Update global input
-    if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
-                pdTRUE) {            
-                xSemaphoreTake(ScreenLock, portMAX_DELAY);
-                tumDrawSetGlobalXOffset(0);
-                tumDrawSetGlobalYOffset(0);
-                tumDrawClear(Black); // Clear screen
-                tumDrawLoadedImage(pause_image,30,90);
-                
-                    sprintf(str,"Pause menu  S TO START");
-                    tumDrawText(str,400,360,Red);
-
-
-                    if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){
-                        sprintf(str,"Current score: %d", score.killscore);
-                        tumDrawText(str,400,400,Red);
-                        sprintf(str,"Current high score: %d",score.highscore);
-                        tumDrawText(str,400,440,Red);
-                        xSemaphoreGive(score.lock);
-                    }
-        
-                xSemaphoreGive(ScreenLock);
-            }
-
-    xQueueSend(NextStateQueue, &state, 0);               
-    xSemaphoreGive(DrawSignal);
-    vCheckStateInput();
-    vTaskDelay(20);
-    }
-}
-void vInitialState(){
-        image_handle_t gamestart_image =
-        tumDrawLoadImage("../resources/images/gamestart.png");        
-        tumDrawSetLoadedImageScale(gamestart_image,0.5);
-        static char strdtt[20] = { 0 };
-    while(1){
-        tumEventFetchEvents(FETCH_EVENT_BLOCK |
-                                    FETCH_EVENT_NO_GL_CHECK);
-        xGetButtonInput(); // Update global input
-                    if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
-                pdTRUE) {            
-                            xSemaphoreTake(ScreenLock, portMAX_DELAY);
-                            tumDrawSetGlobalXOffset(0);
-                            tumDrawSetGlobalYOffset(0);
-                            tumDrawClear(Black); // Clear screen
-                            tumDrawLoadedImage(gamestart_image,90,20);
-                            //showing the FPS in this state just felt weird 
-                            //vDrawFPS();                    
-
-                            //SCORE DRAWING
-
-                                sprintf(strdtt,"PRESS S TO START");
-                                tumDrawText(strdtt,240,
-                                        360,
-                                        Yellow);
-                                sprintf(strdtt,"PRESS P TO PAUSE");
-                                tumDrawText(strdtt,240,
-                                        380,
-                                        Yellow);
-                                sprintf(strdtt,"PRESS A TO TOGGLE AI");
-                                tumDrawText(strdtt,240,
-                                        400,
-                                        Yellow);
-                                sprintf(strdtt,"PRESS D TO ADJUST AI DIFFICULTY");
-                                tumDrawText(strdtt,240,
-                                        420,
-                                        Yellow);
-                                sprintf(strdtt,"PRESS C TO OPEN CHEAT MODE");
-                                tumDrawText(strdtt,240,
-                                        440,
-                                        Yellow);
-                                
-
-
-                            xSemaphoreGive(ScreenLock);
-                            xSemaphoreGive(DrawSignal);
-                }
-        vCheckStateInput();
-        vTaskDelay(20);  
-    }
+void LevelIncreasingTask()
+{
+	while (1)
+	{
+		//Check if we reached a multiple of 50 so that we could re draw the aliens and later on change their speeds accordingly
+		if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+		{
+			if (score.score % 40 == 0 && score.score != 0)
+			{
+				score.level++;
+				xSemaphoreTake(aliensHorizontalMotionStruct.lock, portMAX_DELAY);
+				aliensHorizontalMotionStruct.excessMotionToggle = false;
+				xSemaphoreGive(aliensHorizontalMotionStruct.lock);
+				xSemaphoreGive(aliensCreate);
+				xSemaphoreGive(shelterCreate);
+				score.score = 0;
+			}
+			xSemaphoreGive(score.lock);
+		}
+		vTaskDelay((TickType_t) 20);
+	}
 }
 
-void vIntGodModeStateTask(){
-    image_handle_t arrow_up_image =
-    tumDrawLoadImage("../resources/images/arrow_up.png");        
-    image_handle_t arrow_down_image =
-    tumDrawLoadImage("../resources/images/arrow_down.png");  
-    tumDrawSetLoadedImageScale(arrow_up_image,0.05);
-    tumDrawSetLoadedImageScale(arrow_down_image,0.05);
-    image_handle_t gamestart_image =
-    tumDrawLoadImage("../resources/images/gamestart.png");        
-    tumDrawSetLoadedImageScale(gamestart_image,0.5);    
-    static char strdttt[40] = { 0 };
-    if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-        spaceShipStruct.godmode=false;
-        xSemaphoreGive(spaceShipStruct.lock);
-    }
-    while(1){
-        tumEventFetchEvents(FETCH_EVENT_BLOCK |
-                                    FETCH_EVENT_NO_GL_CHECK);
-        xGetButtonInput(); // Update global input
-                    if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
-                pdTRUE) {            
-                xSemaphoreTake(ScreenLock, portMAX_DELAY);
-                tumDrawSetGlobalXOffset(0);
-                tumDrawSetGlobalYOffset(0);
-                tumDrawClear(Black); // Clear screen
-                
-                // USED FOR DEVELOPMENT PURPOSES
-                /*sprintf(strdttt, "Axis 1: %5d | Axis 2: %5d", tumEventGetMouseX(),
-                tumEventGetMouseY());
-                tumDrawText(strdttt,10,10,Yellow);*/
-                if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){ 
-                    sprintf(strdttt, "INTENDED SCORE: %d",score.killscore);
-                    tumDrawText(strdttt,130,365,Yellow);
-                    sprintf(strdttt, "INTENDED LEVEL: %d",score.level);
-                    tumDrawText(strdttt,450,365,Yellow);
-                    xSemaphoreGive(score.lock);
-                }
-                tumDrawLoadedImage(gamestart_image,90,20);
-                tumDrawLoadedImage(arrow_up_image,90,350);
-                tumDrawLoadedImage(arrow_down_image,90,380);
-                tumDrawLoadedImage(arrow_up_image,400,350);
-                tumDrawLoadedImage(arrow_down_image,400,380);
+void vPauseState(void *pvParameters)
+{
+	image_handle_t pause_image =
+		tumDrawLoadImage("../resources/images/pause.png");
+	tumDrawSetLoadedImageScale(pause_image, 0.3);
+	static char str[20] = { 0 };
+	bool state = false;
+	while (1)
+	{
+		tumEventFetchEvents(FETCH_EVENT_BLOCK |
+			FETCH_EVENT_NO_GL_CHECK);
+		xGetButtonInput();	// Update global input
+		if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
+			pdTRUE)
+		{
+			xSemaphoreTake(ScreenLock, portMAX_DELAY);
+			tumDrawSetGlobalXOffset(0);
+			tumDrawSetGlobalYOffset(0);
+			tumDrawClear(Black);	// Clear screen
+			tumDrawLoadedImage(pause_image, 30, 90);
 
-                if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){    
-                    if(tumEventGetMouseLeft() && (abs(tumEventGetMouseX()-100)<=15) && (abs(tumEventGetMouseY()-360)<=15) ){
-                        score.killscore+=100;
-                    }
-                    if(tumEventGetMouseLeft() && (abs(tumEventGetMouseX()-100)<=15) && (abs(tumEventGetMouseY()-390)<=15) ){
-                        score.killscore-=100;
-                    }
-                    if(tumEventGetMouseLeft() && (abs(tumEventGetMouseX()-410)<=15) && (abs(tumEventGetMouseY()-360)<=15) ){
-                        score.level++;
-                    }
-                    if(tumEventGetMouseLeft() && (abs(tumEventGetMouseX()-410)<=15) && (abs(tumEventGetMouseY()-390)<=15) ){
-                        score.level--;
-                    }
-                    xSemaphoreGive(score.lock);
-                }
-                sprintf(strdttt,"GOD MODE");
-                tumDrawText(strdttt,350,430,Yellow);
-                sprintf(strdttt,"PRESS S TO RETURN/START THE GAME ");
-                tumDrawText(strdttt,50,455,Yellow);
-                sprintf(strdttt,"PRESS G TO ACTIVATE GOD MODE ");
-                tumDrawText(strdttt,350,455,Yellow);
-                tumDrawCircle(450,440,13,Grey);
-                if (xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-                    switch (spaceShipStruct.godmode){
-                        case true:
-                            tumDrawCircle(450,440,10,Green);
-                            break;
-                        case false:
-                            tumDrawCircle(450,440,10,Red);
-                            break;
-                    }
+			sprintf(str, "PRESS S TO START");
+			tumDrawText(str, 400, 360, Red);
 
-                    if ((ButtonStateChangeCheck(KEYCODE(G))==true)){
-                        spaceShipStruct.godmode=!spaceShipStruct.godmode;
-                    }
-                    
-                    xSemaphoreGive(spaceShipStruct.lock);
-                }
-                xSemaphoreGive(ScreenLock);
-                xSemaphoreGive(DrawSignal);
-                }
-        vCheckStateInput();
-        vTaskDelay(20);
-    }
+			if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+			{
+				sprintf(str, "CURRENT SCORE: %d", score.killscore);
+				tumDrawText(str, 400, 400, Red);
+				sprintf(str, "HIGH SCORE: %d", score.highscore);
+				tumDrawText(str, 400, 440, Red);
+				xSemaphoreGive(score.lock);
+			}
+
+			xSemaphoreGive(ScreenLock);
+		}
+
+		xQueueSend(NextStateQueue, &state, 0);
+		xSemaphoreGive(DrawSignal);
+		vCheckStateInput();
+		vTaskDelay(20);
+	}
+}
+void vInitialState()
+{
+	image_handle_t gamestart_image =
+		tumDrawLoadImage("../resources/images/gamestart.png");
+	tumDrawSetLoadedImageScale(gamestart_image, 0.5);
+	static char strdtt[40] = { 0 };
+	while (1)
+	{
+		tumEventFetchEvents(FETCH_EVENT_BLOCK |
+			FETCH_EVENT_NO_GL_CHECK);
+		xGetButtonInput();	// Update global input
+		if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
+			pdTRUE)
+		{
+			xSemaphoreTake(ScreenLock, portMAX_DELAY);
+			tumDrawSetGlobalXOffset(0);
+			tumDrawSetGlobalYOffset(0);
+			tumDrawClear(Black);	// Clear screen
+			tumDrawLoadedImage(gamestart_image, 90, 20);
+			//showing the FPS in this state just felt weird 
+			//vDrawFPS();                    
+
+			//SCORE DRAWING
+
+			sprintf(strdtt, "PRESS S TO START");
+			tumDrawText(strdtt, 240,
+				360,
+				Yellow);
+			sprintf(strdtt, "PRESS P TO PAUSE");
+			tumDrawText(strdtt, 240,
+				380,
+				Yellow);
+			sprintf(strdtt, "PRESS A TO TOGGLE AI");
+			tumDrawText(strdtt, 240,
+				400,
+				Yellow);
+			sprintf(strdtt, "PRESS D TO ADJUST AI DIFFICULTY");
+			tumDrawText(strdtt, 240,
+				420,
+				Yellow);
+			sprintf(strdtt, "PRESS C TO OPEN CHEAT MODE");
+			tumDrawText(strdtt, 240,
+				440,
+				Yellow);
+
+			xSemaphoreGive(ScreenLock);
+			xSemaphoreGive(DrawSignal);
+		}
+		vCheckStateInput();
+		vTaskDelay(20);
+	}
 }
 
+void vIntGodModeStateTask()
+{
+	image_handle_t arrow_up_image =
+		tumDrawLoadImage("../resources/images/arrow_up.png");
+	image_handle_t arrow_down_image =
+		tumDrawLoadImage("../resources/images/arrow_down.png");
+	tumDrawSetLoadedImageScale(arrow_up_image, 0.05);
+	tumDrawSetLoadedImageScale(arrow_down_image, 0.05);
+	image_handle_t gamestart_image =
+		tumDrawLoadImage("../resources/images/gamestart.png");
+	tumDrawSetLoadedImageScale(gamestart_image, 0.5);
+	static char strdttt[40] = { 0 };
+	if (xSemaphoreTake(spaceShipStruct.lock, portMAX_DELAY) == pdTRUE)
+	{
+		spaceShipStruct.godmode = false;
+		xSemaphoreGive(spaceShipStruct.lock);
+	}
+	while (1)
+	{
+		tumEventFetchEvents(FETCH_EVENT_BLOCK |
+			FETCH_EVENT_NO_GL_CHECK);
+		xGetButtonInput();	// Update global input
+		if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
+			pdTRUE)
+		{
+			xSemaphoreTake(ScreenLock, portMAX_DELAY);
+			tumDrawSetGlobalXOffset(0);
+			tumDrawSetGlobalYOffset(0);
+			tumDrawClear(Black);	// Clear screen
+
+			// USED FOR DEVELOPMENT PURPOSES
+			/*sprintf(strdttt, "Axis 1: %5d | Axis 2: %5d", tumEventGetMouseX(),
+			tumEventGetMouseY());
+			tumDrawText(strdttt,10,10,Yellow); */
+			if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+			{
+				sprintf(strdttt, "INTENDED SCORE: %d", score.killscore);
+				tumDrawText(strdttt, 130, 365, Yellow);
+				sprintf(strdttt, "INTENDED LEVEL: %d", score.level);
+				tumDrawText(strdttt, 450, 365, Yellow);
+				xSemaphoreGive(score.lock);
+			}
+			tumDrawLoadedImage(gamestart_image, 90, 20);
+			tumDrawLoadedImage(arrow_up_image, 90, 350);
+			tumDrawLoadedImage(arrow_down_image, 90, 380);
+			tumDrawLoadedImage(arrow_up_image, 400, 350);
+			tumDrawLoadedImage(arrow_down_image, 400, 380);
+
+			if (xSemaphoreTake(score.lock, portMAX_DELAY) == pdTRUE)
+			{
+				if (tumEventGetMouseLeft() && (abs(tumEventGetMouseX() - 100) <= 15) && (abs(tumEventGetMouseY() - 360) <= 15))
+				{
+					score.killscore += 100;
+				}
+				if (tumEventGetMouseLeft() && (abs(tumEventGetMouseX() - 100) <= 15) && (abs(tumEventGetMouseY() - 390) <= 15))
+				{
+					score.killscore -= 100;
+				}
+				if (tumEventGetMouseLeft() && (abs(tumEventGetMouseX() - 410) <= 15) && (abs(tumEventGetMouseY() - 360) <= 15))
+				{
+					score.level++;
+				}
+				if (tumEventGetMouseLeft() && (abs(tumEventGetMouseX() - 410) <= 15) && (abs(tumEventGetMouseY() - 390) <= 15))
+				{
+					score.level--;
+				}
+				xSemaphoreGive(score.lock);
+			}
+			sprintf(strdttt, "GOD MODE");
+			tumDrawText(strdttt, 350, 430, Yellow);
+			sprintf(strdttt, "PRESS S TO RETURN/START THE GAME ");
+			tumDrawText(strdttt, 50, 455, Yellow);
+			sprintf(strdttt, "PRESS G TO ACTIVATE GOD MODE ");
+			tumDrawText(strdttt, 350, 455, Yellow);
+			tumDrawCircle(450, 440, 13, Grey);
+			if (xSemaphoreTake(spaceShipStruct.lock, portMAX_DELAY) == pdTRUE)
+			{
+				switch (spaceShipStruct.godmode)
+				{
+					case true:
+						tumDrawCircle(450, 440, 10, Green);
+						break;
+					case false:
+						tumDrawCircle(450, 440, 10, Red);
+						break;
+				}
+
+				if ((ButtonStateChangeCheck(KEYCODE(G)) == true))
+				{
+					spaceShipStruct.godmode = !spaceShipStruct.godmode;
+				}
+
+				xSemaphoreGive(spaceShipStruct.lock);
+			}
+			xSemaphoreGive(ScreenLock);
+			xSemaphoreGive(DrawSignal);
+		}
+		vCheckStateInput();
+		vTaskDelay(20);
+	}
+}
 
 void vDeathState(){
         image_handle_t gameover_image =
