@@ -1479,7 +1479,7 @@ void vAlienDescentTask(){
             for (int c1 =0;c1<5;c1++){
                     for(int c2=0;c2<8;c2++){
                          if(xSemaphoreTake(aliens_1[c1][c2].lock,portMAX_DELAY)==pdTRUE){
-                            aliens_1[c1][c2].posY+= 0.05+(0.05* score.level);
+                            aliens_1[c1][c2].posY+= 0.05+(0.01* score.level)+(0.001* score.score);
    
                             xSemaphoreGive(aliens_1[c1][c2].lock);
                          }
@@ -1565,24 +1565,41 @@ void vInitialState(){
         xGetButtonInput(); // Update global input
                     if (xSemaphoreTake(DrawSignal, portMAX_DELAY) ==
                 pdTRUE) {            
-                xSemaphoreTake(ScreenLock, portMAX_DELAY);
-                tumDrawSetGlobalXOffset(0);
-                tumDrawSetGlobalYOffset(0);
-                tumDrawClear(Black); // Clear screen
-                tumDrawLoadedImage(gamestart_image,90,20);
-                //showing the FPS in this state just felt weird 
-                //vDrawFPS();                    
+                            xSemaphoreTake(ScreenLock, portMAX_DELAY);
+                            tumDrawSetGlobalXOffset(0);
+                            tumDrawSetGlobalYOffset(0);
+                            tumDrawClear(Black); // Clear screen
+                            tumDrawLoadedImage(gamestart_image,90,20);
+                            //showing the FPS in this state just felt weird 
+                            //vDrawFPS();                    
 
-                //SCORE DRAWING
+                            //SCORE DRAWING
 
-                    sprintf(strdtt,"PRESS S TO START");
-                    tumDrawText(strdtt,240,
-                              400,
-                              Yellow);
+                                sprintf(strdtt,"PRESS S TO START");
+                                tumDrawText(strdtt,240,
+                                        360,
+                                        Yellow);
+                                sprintf(strdtt,"PRESS P TO PAUSE");
+                                tumDrawText(strdtt,240,
+                                        380,
+                                        Yellow);
+                                sprintf(strdtt,"PRESS A TO TOGGLE AI");
+                                tumDrawText(strdtt,240,
+                                        400,
+                                        Yellow);
+                                sprintf(strdtt,"PRESS D TO ADJUST AI DIFFICULTY");
+                                tumDrawText(strdtt,240,
+                                        420,
+                                        Yellow);
+                                sprintf(strdtt,"PRESS C TO OPEN CHEAT MODE");
+                                tumDrawText(strdtt,240,
+                                        440,
+                                        Yellow);
+                                
 
 
-                xSemaphoreGive(ScreenLock);
-                xSemaphoreGive(DrawSignal);
+                            xSemaphoreGive(ScreenLock);
+                            xSemaphoreGive(DrawSignal);
                 }
         vCheckStateInput();
         vTaskDelay(20);  
@@ -1620,9 +1637,9 @@ void vIntGodModeStateTask(){
                 tumEventGetMouseY());
                 tumDrawText(strdttt,10,10,Yellow);*/
                 if(xSemaphoreTake(score.lock,portMAX_DELAY)==pdTRUE){ 
-                    sprintf(strdttt, "Intended Score: %d",score.killscore);
+                    sprintf(strdttt, "INTENDED SCORE: %d",score.killscore);
                     tumDrawText(strdttt,130,365,Yellow);
-                    sprintf(strdttt, "Intended level: %d",score.level);
+                    sprintf(strdttt, "INTENDED LEVEL: %d",score.level);
                     tumDrawText(strdttt,450,365,Yellow);
                     xSemaphoreGive(score.lock);
                 }
@@ -1647,18 +1664,20 @@ void vIntGodModeStateTask(){
                     }
                     xSemaphoreGive(score.lock);
                 }
-                sprintf(strdttt,"God MODE");
-                tumDrawText(strdttt,250,430,Yellow);
-                sprintf(strdttt,"Press G on your keyboard to activate GOD MODE ");
-                tumDrawText(strdttt,250,455,Teal);
-                tumDrawCircle(350,440,13,Grey);
+                sprintf(strdttt,"GOD MODE");
+                tumDrawText(strdttt,350,430,Yellow);
+                sprintf(strdttt,"PRESS S TO RETURN/START THE GAME ");
+                tumDrawText(strdttt,50,455,Yellow);
+                sprintf(strdttt,"PRESS G TO ACTIVATE GOD MODE ");
+                tumDrawText(strdttt,350,455,Yellow);
+                tumDrawCircle(450,440,13,Grey);
                 if (xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
                     switch (spaceShipStruct.godmode){
                         case true:
-                            tumDrawCircle(350,440,10,Green);
+                            tumDrawCircle(450,440,10,Green);
                             break;
                         case false:
-                            tumDrawCircle(350,440,10,Red);
+                            tumDrawCircle(450,440,10,Red);
                             break;
                     }
 
@@ -1713,6 +1732,10 @@ void vDeathState(){
                               Yellow);
                     xSemaphoreGive(score.lock);
                 }
+                sprintf(strdtt,"PRESS S TO REPLAY");
+                    tumDrawText(strdtt,260,
+                              320,
+                              Yellow);
 
                 xSemaphoreGive(ScreenLock);
                 xSemaphoreGive(DrawSignal);
