@@ -943,7 +943,7 @@ bool state = true;
                 if (xSemaphoreTake(buttons.lock, 0) == pdTRUE) {
 
                     if (buttons.buttons[KEYCODE(RIGHT)]) {
-                        if(spaceShipStruct.mothershipXPosition<=560){ 
+                        if(spaceShipStruct.mothershipXPosition<=600){ 
                          spaceShipStruct.mothershipXPosition+=7;
                     }}
                     if (buttons.buttons[KEYCODE(LEFT)]) { 
@@ -976,29 +976,53 @@ bool state = true;
 }
 
 
-void vUDPInputCheckingTask(){
+void vMoveSpaceShip(bool input){
 
+    if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+        if (input){
+            if(spaceShipStruct.mothershipXPosition<=600){ 
+                         spaceShipStruct.mothershipXPosition+=7;
+                }
+        }else{
+            if(spaceShipStruct.mothershipXPosition>=10){ 
+                         spaceShipStruct.mothershipXPosition-=7;
+            }
+        }
+        
+        xSemaphoreGive(spaceShipStruct.lock);
+    }
+}
+
+void vUDPInputCheckingTask(){
+signed int lastpos; 
+signed int delta;
+bool activestate =false;
+int currentpos;
     while(1){
 
                 static opponent_cmd_t current_key = NONE;
-
+                if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+                    currentpos = spaceShipStruct.mothershipXPosition;
+                    activestate = spaceShipStruct.attackState;
+                    xSemaphoreGive(spaceShipStruct.lock);
+                }
                 if (NextKeyQueue) {
                     xQueueReceive(NextKeyQueue, &current_key, 0);
                 }
 
                 if (current_key == INC) {
-                    printf("INC \n");
+                    vMoveSpaceShip(true);
                 }
                 else if (current_key == DEC) {
-                    printf("DEC \n");
+                    vMoveSpaceShip(false);
                 }
+
+                
 
         vTaskDelay(20);
     }
 
 }
-
-
 
 
 void shelterCreatingTask(){
