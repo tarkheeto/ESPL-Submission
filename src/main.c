@@ -43,6 +43,7 @@ typedef struct spaceShipStruct_t
     int spaceShipMissileY;
     int mothershipXPosition;
     int mothershipYPosition; 
+    int difficulty;
     bool godmode;
     int health; 
     SemaphoreHandle_t lock;
@@ -50,7 +51,7 @@ typedef struct spaceShipStruct_t
 spaceShipStruct_t spaceShipStruct;
 
 //UDP STUFF 
-
+static QueueHandle_t DifficultyQueue = NULL;
 #define UDP_BUFFER_SIZE 1024
 #define UDP_RECEIVE_PORT 1234
 #define UDP_TRANSMIT_PORT 1235
@@ -118,6 +119,7 @@ void vUDPControlTask(void *pvParameters)
     in_port_t port = UDP_RECEIVE_PORT;
     bool state;
     bool laststate = true;
+    char last_difficulty = -1;
     char difficulty = 1;
     int currentpos;
     signed int delta;
@@ -136,9 +138,9 @@ void vUDPControlTask(void *pvParameters)
         while (xQueueReceive(NextStateQueue, &state, 0) == pdTRUE) {
         }
         while (xQueueReceive(DeltaPosQueue, &deltadebug,0 )==pdTRUE){
-
         }
-        
+        while (xQueueReceive(DifficultyQueue, &difficulty, 0) == pdTRUE) {
+        }
         /*while (xQueueReceive(BallYQueue, &ball_y, 0) == pdTRUE) {
         }
         while (xQueueReceive(PaddleYQueue, &paddle_y, 0) == pdTRUE) {
@@ -191,7 +193,12 @@ void vUDPControlTask(void *pvParameters)
                 aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
             }
         }
-
+        if (last_difficulty != difficulty) {
+            sprintf(buf, "D%d", difficulty + 1);
+            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                         strlen(buf));
+            last_difficulty = difficulty;
+        }
 
 
     }
@@ -939,11 +946,13 @@ void vSpaceshipShoot(){
 
 void PositionIncrementation_Task(void *pvParameters){
 //Spaceship initialisation
+char difficulty = 1; // 0: easy 1: normal 2: hard
 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
 spaceShipStruct.attackState=false;
 spaceShipStruct.health=3;    
 spaceShipStruct.mothershipXPosition=310;
 spaceShipStruct.mothershipYPosition=400;   
+
 xSemaphoreGive(spaceShipStruct.lock);
     }
 bool state = true;
@@ -973,6 +982,11 @@ bool state = true;
                 
                 if (ButtonStateChangeCheck(KEYCODE(SPACE))==true){
                         vSpaceshipShoot();}  
+
+                if (ButtonStateChangeCheck(KEYCODE(D))==true){
+                    difficulty = (difficulty + 1) % 3;
+                    xQueueSend(DifficultyQueue, (void *) &difficulty, portMAX_DELAY);}  
+
                 if (ButtonStateChangeCheck(KEYCODE(O))==true){
                     
                         xSemaphoreGive(shelterCreate);}      
@@ -1740,6 +1754,11 @@ int main(int argc, char *argv[])
     if (!NextStateQueue) {
         exit(EXIT_FAILURE);
     }
+    DifficultyQueue = xQueueCreate(5, sizeof(unsigned char));
+    if (!DifficultyQueue) {
+        exit(EXIT_FAILURE);
+    }
+
     StateQueue = xQueueCreate(STATE_QUEUE_LENGTH, sizeof(unsigned char));
     if (!StateQueue) {
         PRINT_ERROR("Could not open state queue");
