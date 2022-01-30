@@ -153,14 +153,17 @@ void vUDPControlTask(void *pvParameters)
                          strlen(buf));
             laststate = state;
         }*/
-
-        if(state){  
-        sprintf(buf, "RESUME");            
-        }else{
-        sprintf(buf, "PAUSE");
+        if(state!=laststate){
+            if(state){  
+            sprintf(buf, "RESUME");            
+            }else{
+            sprintf(buf, "PAUSE");
+            }
+            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                            strlen(buf));
+            laststate=state;
         }
-        aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
-                         strlen(buf));
+
 
     }
 }
