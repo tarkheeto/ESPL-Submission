@@ -45,6 +45,7 @@ typedef struct spaceShipStruct_t
     int mothershipYPosition; 
     int difficulty;
     bool godmode;
+    bool AI;
     int health; 
     SemaphoreHandle_t lock;
 }spaceShipStruct_t;
@@ -127,9 +128,9 @@ void vUDPControlTask(void *pvParameters)
     signed int delta;
     bool attackstate;
     bool lastattackstate = false;
-    udp_soc_receive = aIOOpenUDPSocket(addr, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
+    //udp_soc_receive = aIOOpenUDPSocket(addr, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
 
-    printf("UDP socket opened on port %d\n", port);
+    //printf("UDP socket opened on port %d\n", port);
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(15));
@@ -147,46 +148,53 @@ void vUDPControlTask(void *pvParameters)
         while (xQueueReceive(AttackStateQueue, &attackstate,0) == pdTRUE ){
         }
 
-        if (attackstate != lastattackstate){
-            if (attackstate){
-                sprintf(buf, "ATTACKING");    
-            }else{
-                sprintf(buf, "PASSIVE");    
+
+        if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+            if(spaceShipStruct.AI){
+                    if (attackstate != lastattackstate){
+                        if (attackstate){
+                            sprintf(buf, "ATTACKING");    
+                        }else{
+                            sprintf(buf, "PASSIVE");    
+                        }
+                        aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                                        strlen(buf));
+                        lastattackstate=attackstate;
+                    }
+                    if(state!=laststate){
+                        if(state){  
+                        sprintf(buf, "RESUME");            
+                        }else{
+                        sprintf(buf, "PAUSE");
+                        }
+                        aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                                        strlen(buf));
+                        laststate=state;
+                    }
+                    if(state){
+                        if(deltadebug<0){
+                            sprintf(buf,"-%d",-deltadebug);
+                            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
+                        }
+                        if(deltadebug>0){
+                            sprintf(buf,"+%d",deltadebug);
+                            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
+                        }
+                        if(deltadebug==0){
+                            sprintf(buf,"%d",deltadebug);
+                            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
+                        }
+                    }
+                    if (last_difficulty != difficulty) {
+                        sprintf(buf, "D%d", difficulty + 1);
+                        aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                                    strlen(buf));
+                        last_difficulty = difficulty;
+                    }
             }
-            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
-                            strlen(buf));
-            lastattackstate=attackstate;
+            xSemaphoreGive(spaceShipStruct.lock);
         }
-        if(state!=laststate){
-            if(state){  
-            sprintf(buf, "RESUME");            
-            }else{
-            sprintf(buf, "PAUSE");
-            }
-            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
-                            strlen(buf));
-            laststate=state;
-        }
-        if(state){
-            if(deltadebug<0){
-                sprintf(buf,"-%d",-deltadebug);
-                aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
-            }
-            if(deltadebug>0){
-                sprintf(buf,"+%d",deltadebug);
-                aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
-            }
-            if(deltadebug==0){
-                sprintf(buf,"%d",deltadebug);
-                aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
-            }
-        }
-        if (last_difficulty != difficulty) {
-            sprintf(buf, "D%d", difficulty + 1);
-            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
-                         strlen(buf));
-            last_difficulty = difficulty;
-        }
+
 
 
     }
@@ -799,6 +807,13 @@ void Drawing_Task(void *pvParameters)
                 if (xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
                     sprintf(strdt,"AI = D%d",spaceShipStruct.difficulty+1);
                     tumDrawText(strdt,250,450,Yellow);
+
+                    if(spaceShipStruct.AI){
+                       sprintf(strdt,"AI MODE ON"); 
+                    }else{
+                        sprintf(strdt,"AI MODE OFF");
+                    }
+                    tumDrawText(strdt,350,450,Yellow);
                     xSemaphoreGive(spaceShipStruct.lock);
                 }
                 // Drawing the line that separates health, score and FPS from the ship
@@ -926,14 +941,16 @@ void PositionIncrementation_Task(void *pvParameters){
 //Spaceship initialisation
 char difficulty = 1; // 0: easy 1: normal 2: hard
 if (xSemaphoreTake(spaceShipStruct.lock,0)==pdTRUE){
-spaceShipStruct.attackState=false;
-spaceShipStruct.health=3;    
-spaceShipStruct.mothershipXPosition=310;
-spaceShipStruct.mothershipYPosition=400;   
+    spaceShipStruct.attackState=false;
+    spaceShipStruct.AI=false;
+    spaceShipStruct.health=3;    
+    spaceShipStruct.mothershipXPosition=310;
+    spaceShipStruct.mothershipYPosition=400;   
 
-xSemaphoreGive(spaceShipStruct.lock);
+    xSemaphoreGive(spaceShipStruct.lock);
     }
 bool state = true;
+in_port_t port = UDP_RECEIVE_PORT;
     while(1){
                 tumEventFetchEvents(FETCH_EVENT_BLOCK |
                                     FETCH_EVENT_NO_GL_CHECK);
@@ -966,8 +983,21 @@ bool state = true;
                         spaceShipStruct.difficulty=difficulty;
                         xQueueSend(DifficultyQueue, (void *) &difficulty, portMAX_DELAY);}  
 
-                    if (ButtonStateChangeCheck(KEYCODE(O))==true){
-                        xSemaphoreGive(shelterCreate);
+                    if (ButtonStateChangeCheck(KEYCODE(A))==true){
+                        if(spaceShipStruct.AI){	 
+                            if (udp_soc_receive==NULL){printf("BIG ERROR\n");}                          
+                            aIOCloseConn(udp_soc_receive);
+                            printf("UDP socket closed on port %d\n", port);
+                            spaceShipStruct.AI=false;                            
+                        }
+                        else{
+                            spaceShipStruct.AI=true;
+                            udp_soc_receive = aIOOpenUDPSocket(NULL, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
+                            printf("UDP socket opened on port %d\n", port);
+                        }
+                    }
+                    if (ButtonStateChangeCheck(KEYCODE(H))==true){
+                        
                     }
                         
                     if (spaceShipStruct.attackState){
