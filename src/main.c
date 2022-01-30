@@ -36,7 +36,18 @@
 #define ACTIVE_STATE 5
 #define PREV_TASK 1
 #define INT_GODMODE_STATE 20
-
+typedef struct spaceShipStruct_t
+{
+    bool attackState; // IF false then passive -> we can shoot
+    int spaceShipMissileX;
+    int spaceShipMissileY;
+    int mothershipXPosition;
+    int mothershipYPosition; 
+    bool godmode;
+    int health; 
+    SemaphoreHandle_t lock;
+}spaceShipStruct_t;
+spaceShipStruct_t spaceShipStruct;
 
 //UDP STUFF 
 
@@ -47,7 +58,7 @@
 TaskHandle_t UDPInputCheckingTaskHandle = NULL;
 TaskHandle_t UDPControlTask = NULL;
 static QueueHandle_t NextKeyQueue = NULL;
-
+static QueueHandle_t DeltaPosQueue = NULL;
 
 static QueueHandle_t NextStateQueue = NULL;
 
@@ -99,7 +110,7 @@ void UDPHandler(size_t read_size, char *buffer, void *args)
     }
 }
 
-
+signed int deltadebug;
 void vUDPControlTask(void *pvParameters)
 {
     static char buf[50];
@@ -107,20 +118,27 @@ void vUDPControlTask(void *pvParameters)
     in_port_t port = UDP_RECEIVE_PORT;
     bool state;
     bool laststate = true;
-    unsigned int ball_y = 0;
-    unsigned int paddle_y = 0;
-    char last_difficulty = -1;
     char difficulty = 1;
-
-    udp_soc_receive =
-        aIOOpenUDPSocket(addr, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
+    int currentpos;
+    signed int delta;
+    bool attackstate;
+    udp_soc_receive = aIOOpenUDPSocket(addr, port, UDP_BUFFER_SIZE, UDPHandler, NULL);
 
     printf("UDP socket opened on port %d\n", port);
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(15));
+        if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+            currentpos = spaceShipStruct.mothershipXPosition;
+            attackstate = spaceShipStruct.attackState;
+            xSemaphoreGive(spaceShipStruct.lock);
+        }
         while (xQueueReceive(NextStateQueue, &state, 0) == pdTRUE) {
         }
+        while (xQueueReceive(DeltaPosQueue, &deltadebug,0 )==pdTRUE){
+
+        }
+        
         /*while (xQueueReceive(BallYQueue, &ball_y, 0) == pdTRUE) {
         }
         while (xQueueReceive(PaddleYQueue, &paddle_y, 0) == pdTRUE) {
@@ -163,6 +181,17 @@ void vUDPControlTask(void *pvParameters)
                             strlen(buf));
             laststate=state;
         }
+        if(state){
+            if(deltadebug<0){
+                sprintf(buf,"-%d",-deltadebug);
+                aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
+            }
+            if(deltadebug>0){
+                sprintf(buf,"+%d",deltadebug);
+                aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,strlen(buf));
+            }
+        }
+
 
 
     }
@@ -285,18 +314,7 @@ typedef struct shelterblock_t{
         SemaphoreHandle_t lock;
 }shelterblock_t;
 shelterblock_t shelterBlocks[20];
-typedef struct spaceShipStruct_t
-{
-    bool attackState; // IF false then passive -> we can shoot
-    int spaceShipMissileX;
-    int spaceShipMissileY;
-    int mothershipXPosition;
-    int mothershipYPosition; 
-    bool godmode;
-    int health; 
-    SemaphoreHandle_t lock;
-}spaceShipStruct_t;
-spaceShipStruct_t spaceShipStruct;
+
 typedef struct Exercise3VariableIncrementationStruct {
     int LeftNumber;
     int RightNumber;
@@ -976,48 +994,43 @@ bool state = true;
 }
 
 
-void vMoveSpaceShip(bool input){
-
-    if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-        if (input){
-            if(spaceShipStruct.mothershipXPosition<=600){ 
-                         spaceShipStruct.mothershipXPosition+=7;
-                }
-        }else{
-            if(spaceShipStruct.mothershipXPosition>=10){ 
-                         spaceShipStruct.mothershipXPosition-=7;
-            }
-        }
-        
-        xSemaphoreGive(spaceShipStruct.lock);
-    }
-}
 
 void vUDPInputCheckingTask(){
-signed int lastpos; 
+int lastpos; 
 signed int delta;
 bool activestate =false;
-int currentpos;
     while(1){
 
                 static opponent_cmd_t current_key = NONE;
-                if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
-                    currentpos = spaceShipStruct.mothershipXPosition;
-                    activestate = spaceShipStruct.attackState;
-                    xSemaphoreGive(spaceShipStruct.lock);
-                }
+
                 if (NextKeyQueue) {
                     xQueueReceive(NextKeyQueue, &current_key, 0);
                 }
-
-                if (current_key == INC) {
-                    vMoveSpaceShip(true);
+                if (current_key){ 
+                    if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){
+                        lastpos=spaceShipStruct.mothershipXPosition;
+                        if (current_key == INC) {
+                            printf("INC\n");
+                            if(spaceShipStruct.mothershipXPosition<=600){ 
+                                spaceShipStruct.mothershipXPosition+=7;
+                                delta= lastpos - spaceShipStruct.mothershipXPosition;
+                                xQueueSend(DeltaPosQueue,&delta,0);
+                            }           
+                        }
+                        else if (current_key == DEC) {
+                            printf("DEC\n");
+                            if(spaceShipStruct.mothershipXPosition>=10){ 
+                                spaceShipStruct.mothershipXPosition-=7;
+                                delta= lastpos - spaceShipStruct.mothershipXPosition;
+                                xQueueSend(DeltaPosQueue,&delta,0);
+                            }               
+                        }  
+                    xSemaphoreGive(spaceShipStruct.lock);
+                    }
                 }
-                else if (current_key == DEC) {
-                    vMoveSpaceShip(false);
-                }
 
-                
+
+
 
         vTaskDelay(20);
     }
@@ -1719,6 +1732,7 @@ int main(int argc, char *argv[])
     aliensCreate = xSemaphoreCreateBinary();
     spaceShipStruct.lock = xSemaphoreCreateMutex();
     NextKeyQueue = xQueueCreate(1, sizeof(opponent_cmd_t));
+    DeltaPosQueue = xQueueCreate(5, sizeof(signed int));
     if (!NextKeyQueue) {
         exit(EXIT_FAILURE);
     }
