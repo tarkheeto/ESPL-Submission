@@ -48,6 +48,11 @@ TaskHandle_t UDPInputCheckingTaskHandle = NULL;
 TaskHandle_t UDPControlTask = NULL;
 static QueueHandle_t NextKeyQueue = NULL;
 
+
+static QueueHandle_t NextStateQueue = NULL;
+
+
+
 static SemaphoreHandle_t HandleUDP = NULL;
 
 aIO_handle_t udp_soc_receive = NULL, udp_soc_transmit = NULL;
@@ -100,6 +105,8 @@ void vUDPControlTask(void *pvParameters)
     static char buf[50];
     char *addr = NULL; // Loopback
     in_port_t port = UDP_RECEIVE_PORT;
+    bool state;
+    bool laststate = true;
     unsigned int ball_y = 0;
     unsigned int paddle_y = 0;
     char last_difficulty = -1;
@@ -112,6 +119,8 @@ void vUDPControlTask(void *pvParameters)
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(15));
+        while (xQueueReceive(NextStateQueue, &state, 0) == pdTRUE) {
+        }
         /*while (xQueueReceive(BallYQueue, &ball_y, 0) == pdTRUE) {
         }
         while (xQueueReceive(PaddleYQueue, &paddle_y, 0) == pdTRUE) {
@@ -133,6 +142,26 @@ void vUDPControlTask(void *pvParameters)
                          strlen(buf));
             last_difficulty = difficulty;
         }*/
+        
+        /*if (state != laststate){
+            if(state){  
+            sprintf(buf, "RESUME");            
+            }else{
+            sprintf(buf, "PAUSE");
+            }
+            aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                         strlen(buf));
+            laststate = state;
+        }*/
+
+        if(state){  
+        sprintf(buf, "RESUME");            
+        }else{
+        sprintf(buf, "PAUSE");
+        }
+        aIOSocketPut(UDP, NULL, UDP_TRANSMIT_PORT, buf,
+                         strlen(buf));
+
     }
 }
 
@@ -896,7 +925,7 @@ spaceShipStruct.mothershipXPosition=310;
 spaceShipStruct.mothershipYPosition=400;   
 xSemaphoreGive(spaceShipStruct.lock);
     }
-
+bool state = true;
     while(1){
                 tumEventFetchEvents(FETCH_EVENT_BLOCK |
                                     FETCH_EVENT_NO_GL_CHECK);
@@ -936,8 +965,8 @@ xSemaphoreGive(spaceShipStruct.lock);
                 }
                 xSemaphoreGive(spaceShipStruct.lock);
                 }
-
-                vTaskDelay((TickType_t)20);
+                xQueueSend(NextStateQueue, &state, 0);
+                vTaskDelay(20);
             }
             vCheckStateInput();
 
@@ -1013,7 +1042,6 @@ void shelterCreatingTask(){
     }
 }
 void collisionDetectionTask(){
-    
     while(1){
         if(xSemaphoreTake(spaceShipStruct.lock,portMAX_DELAY)==pdTRUE){ //to get the access to the missile's position
 
@@ -1139,6 +1167,8 @@ void collisionDetectionTask(){
                 }
             }
         }    
+
+        
         vTaskDelay((TickType_t)1);
 
     }
@@ -1416,6 +1446,7 @@ void vPauseState(void *pvParameters){
     tumDrawLoadImage("../resources/images/pause.png");        
     tumDrawSetLoadedImageScale(pause_image,0.3);    
     static char str[20] = { 0 };
+    bool state = false;
     while(1)
     {
     tumEventFetchEvents(FETCH_EVENT_BLOCK |
@@ -1443,7 +1474,8 @@ void vPauseState(void *pvParameters){
         
                 xSemaphoreGive(ScreenLock);
             }
-                   
+
+    xQueueSend(NextStateQueue, &state, 0);               
     xSemaphoreGive(DrawSignal);
     vCheckStateInput();
     vTaskDelay(20);
@@ -1661,6 +1693,10 @@ int main(int argc, char *argv[])
     spaceShipStruct.lock = xSemaphoreCreateMutex();
     NextKeyQueue = xQueueCreate(1, sizeof(opponent_cmd_t));
     if (!NextKeyQueue) {
+        exit(EXIT_FAILURE);
+    }
+    NextStateQueue = xQueueCreate(1, sizeof(bool));
+    if (!NextStateQueue) {
         exit(EXIT_FAILURE);
     }
     StateQueue = xQueueCreate(STATE_QUEUE_LENGTH, sizeof(unsigned char));
